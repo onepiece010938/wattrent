@@ -31,3 +31,8 @@ RUN go mod download
 
 # Expose necessary ports
 EXPOSE 8080 19006
+
+# Usage
+# docker build -t wattrent-dev .
+# For powershell
+# docker run -itd -v "${PWD}:/wattrent" -p 8080:8080 -p 19006:19006 --name=wattrent-dev wattrent-dev
