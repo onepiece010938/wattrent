@@ -15,7 +15,13 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     unzip \
-    bash
+    bash \
+    bash-completion
+
+# Enable bash completion
+RUN echo 'if [ -f /etc/bash_completion ]; then 
+    . /etc/bash_completion
+fi' >> ~/.bashrc
 
 # Install Air (Go hot reload tool)
 RUN go install github.com/air-verse/air@latest
