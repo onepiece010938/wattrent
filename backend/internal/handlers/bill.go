@@ -5,10 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"wattrent/internal/models"
 	"wattrent/internal/services"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type BillHandler struct {
@@ -73,6 +74,7 @@ func (h *BillHandler) CreateBill(c *gin.Context) {
 		ID:               uuid.New().String(),
 		UserID:           userID,
 		MeterReadingID:   meterReading.ID,
+		MeterReading:     req.MeterReading,
 		ElectricityUsage: usage,
 		ElectricityRate:  req.ElectricityRate,
 		ElectricityCost:  electricityCost,
@@ -116,7 +118,7 @@ func (h *BillHandler) GetBills(c *gin.Context) {
 // GetBill 獲取單一帳單
 func (h *BillHandler) GetBill(c *gin.Context) {
 	billID := c.Param("id")
-	
+
 	bill, err := h.billService.GetBillByID(billID)
 	if err != nil {
 		c.Error(err)
@@ -132,7 +134,7 @@ func (h *BillHandler) GetBill(c *gin.Context) {
 // UpdateBillPayment 更新帳單付款狀態
 func (h *BillHandler) UpdateBillPayment(c *gin.Context) {
 	billID := c.Param("id")
-	
+
 	bill, err := h.billService.GetBillByID(billID)
 	if err != nil {
 		c.Error(err)
@@ -174,4 +176,61 @@ func (h *BillHandler) GetLatestBill(c *gin.Context) {
 		Success: true,
 		Data:    bill,
 	})
-} 
+}
+
+// DeleteBill 刪除帳單
+func (h *BillHandler) DeleteBill(c *gin.Context) {
+	billID := c.Param("id")
+
+	if err := h.billService.DeleteBill(billID); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, models.ApiResponse{
+		Success: true,
+		Message: "帳單刪除成功",
+	})
+}
+
+// UpdateBill 更新帳單
+func (h *BillHandler) UpdateBill(c *gin.Context) {
+	billID := c.Param("id")
+
+	var req map[string]interface{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(err)
+		return
+	}
+
+	bill, err := h.billService.GetBillByID(billID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+
+	// 更新付款狀態
+	if paidAtStr, ok := req["paidAt"].(string); ok {
+		if paidAtStr == "" {
+			bill.PaidAt = nil
+		} else {
+			paidAt, err := time.Parse(time.RFC3339, paidAtStr)
+			if err == nil {
+				bill.PaidAt = &paidAt
+			}
+		}
+	}
+
+	// 可以在這裡添加其他欄位的更新邏輯
+
+	if err := h.billService.UpdateBill(bill); err != nil {
+		c.Error(err)
+		return
+	}
+
+	c.JSON(http.StatusOK, models.ApiResponse{
+		Success: true,
+		Data:    bill,
+		Message: "帳單更新成功",
+	})
+}

@@ -1,39 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  StyleSheet,
   View,
   Text,
   FlatList,
   TouchableOpacity,
   Alert,
   Share,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { Bill } from '@/types';
+import apiService from '@/services/api';
+import PaymentStatusDropdown from '@/components/PaymentStatusDropdown';
+import settingsService from '@/services/settings';
+import { useColorScheme } from '~/lib/useColorScheme';
 
 export default function HistoryScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
   const [bills, setBills] = useState<Bill[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const { isDarkColorScheme } = useColorScheme();
 
-  useEffect(() => {
-    loadBills();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadBills();
+    }, [])
+  );
 
   const loadBills = async () => {
     setRefreshing(true);
     try {
-      // TODO: 從 API 或本地儲存載入帳單
-      // 模擬資料
+      const billsData = await apiService.getBills();
+      setBills(billsData);
+    } catch (error) {
+      console.error('載入帳單失敗:', error);
+      // 如果 API 連線失敗，使用模擬資料
       const mockBills: Bill[] = [
         {
           id: '1',
           userId: 'user1',
           meterReadingId: 'reading1',
+          meterReading: 1500,
           electricityUsage: 150,
           electricityRate: 4.5,
           electricityCost: 675,
@@ -47,6 +55,7 @@ export default function HistoryScreen() {
           id: '2',
           userId: 'user1',
           meterReadingId: 'reading2',
+          meterReading: 1680,
           electricityUsage: 180,
           electricityRate: 4.5,
           electricityCost: 810,
@@ -59,9 +68,6 @@ export default function HistoryScreen() {
         },
       ];
       setBills(mockBills);
-    } catch (error) {
-      console.error('載入帳單失敗:', error);
-      Alert.alert('錯誤', '無法載入帳單記錄');
     } finally {
       setRefreshing(false);
     }
@@ -90,226 +96,211 @@ export default function HistoryScreen() {
     return `房東您好，本月房租${bill.rent}元加電費${bill.electricityCost}元，總計${bill.totalAmount}元已匯款，請查收。`;
   };
 
-  const markAsPaid = (billId: string) => {
+  const deleteBill = (billId: string) => {
     Alert.alert(
-      '確認付款',
-      '確定要標記此帳單為已付款嗎？',
+      '確認刪除',
+      '確定要刪除此帳單嗎？',
       [
         { text: '取消', style: 'cancel' },
         {
-          text: '確定',
+          text: '刪除',
+          style: 'destructive',
           onPress: async () => {
-            // TODO: 更新帳單付款狀態
-            const updatedBills = bills.map(bill =>
-              bill.id === billId
-                ? { ...bill, paidAt: new Date().toISOString() }
-                : bill
-            );
-            setBills(updatedBills);
+            try {
+              await apiService.deleteBill(billId);
+              
+              const updatedBills = bills.filter(bill => bill.id !== billId);
+              setBills(updatedBills);
+              
+              Alert.alert('成功', '帳單已刪除');
+            } catch (error) {
+              console.error('刪除帳單失敗:', error);
+              Alert.alert('錯誤', '無法刪除帳單');
+            }
           },
         },
       ]
     );
   };
 
+  const togglePaymentStatus = async (bill: Bill) => {
+    try {
+      const isMarkingAsPaid = !bill.paidAt;
+      
+      const updatedBill = await apiService.updateBill(bill.id, {
+        paidAt: bill.paidAt ? undefined : new Date().toISOString(),
+      });
+      
+      const updatedBills = bills.map(b =>
+        b.id === bill.id ? updatedBill : b
+      );
+      setBills(updatedBills);
+      
+      // 如果標記為已匯款，更新前次電表度數
+      if (isMarkingAsPaid) {
+        try {
+          await settingsService.updatePreviousMeterReading(bill.meterReading);
+        } catch (error) {
+          console.error('更新前次電表度數失敗:', error);
+        }
+      }
+      
+      Alert.alert('成功', bill.paidAt ? '已標記為尚未匯款' : '已標記為已匯款');
+    } catch (error) {
+      console.error('更新付款狀態失敗:', error);
+      Alert.alert('錯誤', '無法更新付款狀態');
+    }
+  };
+
   const renderBillItem = ({ item }: { item: Bill }) => (
-    <View style={[styles.billCard, { backgroundColor: colors.card }]}>
-      <View style={styles.billHeader}>
-        <Text style={[styles.billPeriod, { color: colors.text }]}>{item.period}</Text>
-        {item.paidAt && (
-          <View style={styles.paidBadge}>
-            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-            <Text style={styles.paidText}>已付款</Text>
+    <View className="bg-card rounded-2xl p-5 mb-4 shadow-sm border border-border">
+      <View className="flex-row items-center justify-between mb-4">
+        <Text className="text-lg font-semibold text-card-foreground">
+          {item.period}
+        </Text>
+        {item.paidAt ? (
+          <PaymentStatusDropdown
+            bill={item}
+            onUpdatePaymentStatus={togglePaymentStatus}
+            onDeleteBill={deleteBill}
+          />
+        ) : (
+          <View className="flex-row items-center bg-amber-100 dark:bg-amber-900 px-3 py-1 rounded-full">
+            <Ionicons name="time" size={16} color="#F59E0B" />
+            <Text className="text-amber-700 dark:text-amber-300 text-sm ml-1">
+              待匯款
+            </Text>
           </View>
         )}
       </View>
 
-      <View style={styles.billDetails}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.text }]}>用電度數</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>
+      <View className="space-y-2 mb-4">
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-muted-foreground">電表度數：</Text>
+          <Text className="text-sm text-card-foreground font-medium">
+            {item.meterReading} 度
+          </Text>
+        </View>
+        
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-muted-foreground">電費單價：</Text>
+          <Text className="text-sm text-card-foreground font-medium">
+            ${item.electricityRate}/度
+          </Text>
+        </View>
+        
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-muted-foreground">用電度數：</Text>
+          <Text className="text-sm text-card-foreground font-medium">
             {item.electricityUsage} 度
           </Text>
         </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.text }]}>電費</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>
-            NT$ {item.electricityCost}
+        
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-muted-foreground">電費計算：</Text>
+          <Text className="text-sm text-card-foreground font-medium">
+            {item.electricityUsage} × ${item.electricityRate} = ${item.electricityCost}
           </Text>
         </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, { color: colors.text }]}>房租</Text>
-          <Text style={[styles.detailValue, { color: colors.text }]}>
-            NT$ {item.rent}
+        
+        <View className="flex-row justify-between">
+          <Text className="text-sm text-muted-foreground">房租：</Text>
+          <Text className="text-sm text-card-foreground font-medium">
+            ${item.rent}
           </Text>
         </View>
-        <View style={[styles.detailRow, styles.totalRow]}>
-          <Text style={[styles.detailLabel, styles.totalLabel, { color: colors.text }]}>
-            總計
-          </Text>
-          <Text style={[styles.detailValue, styles.totalValue, { color: colors.tint }]}>
-            NT$ {item.totalAmount}
-          </Text>
+        
+        <View className="border-t border-border pt-2 mt-2">
+          <View className="flex-row justify-between">
+            <Text className="text-base font-semibold text-card-foreground">
+              總金額：
+            </Text>
+            <Text className="text-lg font-bold text-primary">
+              ${item.totalAmount}
+            </Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.billActions}>
+      <View className="flex-row gap-2">
         <TouchableOpacity
-          style={[styles.actionButton, { borderColor: colors.tint }]}
+          className="flex-1 flex-row items-center justify-center border border-primary rounded-lg py-2"
           onPress={() => shareBillMessage(item)}
         >
-          <Ionicons name="share-outline" size={20} color={colors.tint} />
-          <Text style={[styles.actionButtonText, { color: colors.tint }]}>分享</Text>
+          <Ionicons 
+            name="share-outline" 
+            size={18} 
+            color={isDarkColorScheme ? '#60A5FA' : '#2563EB'} 
+          />
+          <Text className="text-primary text-sm font-medium ml-1">
+            分享
+          </Text>
         </TouchableOpacity>
 
         {!item.paidAt && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.primaryButton, { backgroundColor: colors.tint }]}
-            onPress={() => markAsPaid(item.id)}
-          >
-            <Ionicons name="checkmark" size={20} color="#fff" />
-            <Text style={[styles.actionButtonText, styles.primaryButtonText]}>已付款</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              className="flex-1 flex-row items-center justify-center bg-primary rounded-lg py-2"
+              onPress={() => togglePaymentStatus(item)}
+            >
+              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+              <Text className="text-primary-foreground text-sm font-medium ml-1">
+                標記為已匯款
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-row items-center justify-center border border-destructive rounded-lg px-3 py-2"
+              onPress={() => deleteBill(item.id)}
+            >
+              <Ionicons 
+                name="trash-outline" 
+                size={18} 
+                color={isDarkColorScheme ? '#F87171' : '#DC2626'} 
+              />
+              <Text className="text-destructive text-sm font-medium ml-1">刪除</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>帳單記錄</Text>
-      </View>
+    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+      <View className="flex-1 px-5">
+        <Text className="text-3xl font-bold text-foreground pt-5 pb-4">
+          帳單記錄
+        </Text>
 
-      <FlatList
-        data={bills}
-        renderItem={renderBillItem}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshing={refreshing}
-        onRefresh={loadBills}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color={colors.icon} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>
-              尚無帳單記錄
-            </Text>
-          </View>
-        }
-      />
+        <FlatList
+          data={bills}
+          renderItem={renderBillItem}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={loadBills}
+              colors={[isDarkColorScheme ? '#60A5FA' : '#2563EB']}
+              tintColor={isDarkColorScheme ? '#60A5FA' : '#2563EB'}
+            />
+          }
+          ListEmptyComponent={
+            <View className="flex-1 items-center justify-center py-20">
+              <Ionicons 
+                name="document-text-outline" 
+                size={64} 
+                color={isDarkColorScheme ? '#6B7280' : '#9CA3AF'} 
+              />
+              <Text className="text-muted-foreground text-base mt-4">
+                尚無帳單記錄
+              </Text>
+            </View>
+          }
+        />
+      </View>
     </SafeAreaView>
   );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-  },
-  listContent: {
-    padding: 20,
-    paddingTop: 10,
-  },
-  billCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  billHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  billPeriod: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  paidBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  paidText: {
-    color: '#4CAF50',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  billDetails: {
-    marginBottom: 16,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  detailLabel: {
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    paddingTop: 8,
-    marginTop: 4,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  billActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    gap: 6,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  primaryButton: {
-    borderWidth: 0,
-  },
-  primaryButtonText: {
-    color: '#fff',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 12,
-    opacity: 0.6,
-  },
-}); 
+} 

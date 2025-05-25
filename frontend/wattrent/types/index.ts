@@ -14,6 +14,7 @@ export interface Bill {
   id: string;
   userId: string;
   meterReadingId: string;
+  meterReading: number; // 電表讀數
   electricityUsage: number; // 用電度數
   electricityRate: number; // 每度電費
   electricityCost: number; // 電費總額
@@ -30,6 +31,7 @@ export interface UserSettings {
   userId: string;
   defaultElectricityRate: number; // 預設電費單價
   defaultRent: number; // 預設房租
+  previousMeterReading: number; // 前次(月)電表度數(初始電表度數)
   landlordName?: string; // 房東名稱
   paymentMethod?: string; // 付款方式
 }

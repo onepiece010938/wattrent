@@ -15,38 +15,39 @@ type User struct {
 
 // MeterReading 電表讀數
 type MeterReading struct {
-	ID               string    `json:"id" dynamodbav:"id"`
-	UserID           string    `json:"userId" dynamodbav:"userId"`
-	Reading          float64   `json:"reading" dynamodbav:"reading"`
-	ImageURL         string    `json:"imageUrl,omitempty" dynamodbav:"imageUrl,omitempty"`
-	PreviousReading  float64   `json:"previousReading,omitempty" dynamodbav:"previousReading,omitempty"`
-	Usage            float64   `json:"usage,omitempty" dynamodbav:"usage,omitempty"`
-	CreatedAt        time.Time `json:"createdAt" dynamodbav:"createdAt"`
+	ID              string    `json:"id" dynamodbav:"id"`
+	UserID          string    `json:"userId" dynamodbav:"userId"`
+	Reading         float64   `json:"reading" dynamodbav:"reading"`
+	ImageURL        string    `json:"imageUrl,omitempty" dynamodbav:"imageUrl,omitempty"`
+	PreviousReading float64   `json:"previousReading,omitempty" dynamodbav:"previousReading,omitempty"`
+	Usage           float64   `json:"usage,omitempty" dynamodbav:"usage,omitempty"`
+	CreatedAt       time.Time `json:"createdAt" dynamodbav:"createdAt"`
 }
 
 // Bill 帳單
 type Bill struct {
-	ID               string    `json:"id" dynamodbav:"id"`
-	UserID           string    `json:"userId" dynamodbav:"userId"`
-	MeterReadingID   string    `json:"meterReadingId" dynamodbav:"meterReadingId"`
-	ElectricityUsage float64   `json:"electricityUsage" dynamodbav:"electricityUsage"`
-	ElectricityRate  float64   `json:"electricityRate" dynamodbav:"electricityRate"`
-	ElectricityCost  float64   `json:"electricityCost" dynamodbav:"electricityCost"`
-	Rent             float64   `json:"rent" dynamodbav:"rent"`
-	TotalAmount      float64   `json:"totalAmount" dynamodbav:"totalAmount"`
-	Period           string    `json:"period" dynamodbav:"period"`
-	Message          string    `json:"message,omitempty" dynamodbav:"message,omitempty"`
+	ID               string     `json:"id" dynamodbav:"id"`
+	UserID           string     `json:"userId" dynamodbav:"userId"`
+	MeterReadingID   string     `json:"meterReadingId" dynamodbav:"meterReadingId"`
+	MeterReading     float64    `json:"meterReading" dynamodbav:"meterReading"`
+	ElectricityUsage float64    `json:"electricityUsage" dynamodbav:"electricityUsage"`
+	ElectricityRate  float64    `json:"electricityRate" dynamodbav:"electricityRate"`
+	ElectricityCost  float64    `json:"electricityCost" dynamodbav:"electricityCost"`
+	Rent             float64    `json:"rent" dynamodbav:"rent"`
+	TotalAmount      float64    `json:"totalAmount" dynamodbav:"totalAmount"`
+	Period           string     `json:"period" dynamodbav:"period"`
+	Message          string     `json:"message,omitempty" dynamodbav:"message,omitempty"`
 	PaidAt           *time.Time `json:"paidAt,omitempty" dynamodbav:"paidAt,omitempty"`
-	CreatedAt        time.Time `json:"createdAt" dynamodbav:"createdAt"`
+	CreatedAt        time.Time  `json:"createdAt" dynamodbav:"createdAt"`
 }
 
 // UserSettings 用戶設定
 type UserSettings struct {
-	UserID                 string  `json:"userId" dynamodbav:"userId"`
-	DefaultElectricityRate float64 `json:"defaultElectricityRate" dynamodbav:"defaultElectricityRate"`
-	DefaultRent            float64 `json:"defaultRent" dynamodbav:"defaultRent"`
-	LandlordName           string  `json:"landlordName,omitempty" dynamodbav:"landlordName,omitempty"`
-	PaymentMethod          string  `json:"paymentMethod,omitempty" dynamodbav:"paymentMethod,omitempty"`
+	UserID                 string    `json:"userId" dynamodbav:"userId"`
+	DefaultElectricityRate float64   `json:"defaultElectricityRate" dynamodbav:"defaultElectricityRate"`
+	DefaultRent            float64   `json:"defaultRent" dynamodbav:"defaultRent"`
+	LandlordName           string    `json:"landlordName,omitempty" dynamodbav:"landlordName,omitempty"`
+	PaymentMethod          string    `json:"paymentMethod,omitempty" dynamodbav:"paymentMethod,omitempty"`
 	UpdatedAt              time.Time `json:"updatedAt" dynamodbav:"updatedAt"`
 }
 
@@ -78,4 +79,4 @@ type ApiResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 	Error   string      `json:"error,omitempty"`
 	Message string      `json:"message,omitempty"`
-} 
+}

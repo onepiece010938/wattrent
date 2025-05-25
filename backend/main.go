@@ -3,10 +3,11 @@ package main
 import (
 	"log"
 
-	"github.com/gin-gonic/gin"
 	"wattrent/internal/handlers"
 	"wattrent/internal/middleware"
 	"wattrent/internal/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
@@ -30,7 +31,7 @@ func main() {
 		// 健康檢查
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(200, gin.H{
-				"status": "ok",
+				"status":  "ok",
 				"message": "WattRent API is running",
 			})
 		})
@@ -45,7 +46,9 @@ func main() {
 			bills.GET("", billHandler.GetBills)
 			bills.GET("/latest", billHandler.GetLatestBill)
 			bills.GET("/:id", billHandler.GetBill)
+			bills.PUT("/:id", billHandler.UpdateBill)
 			bills.PUT("/:id/payment", billHandler.UpdateBillPayment)
+			bills.DELETE("/:id", billHandler.DeleteBill)
 		}
 
 		// 電表讀數相關
