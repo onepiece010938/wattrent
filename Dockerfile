@@ -36,7 +36,7 @@ WORKDIR /wattrent/backend
 RUN go mod download
 
 # Expose necessary ports
-EXPOSE 8080 19006
+EXPOSE 8080 8090 8081 19006
 
 # Usage
 # docker build -t wattrent-dev .

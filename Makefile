@@ -1,4 +1,4 @@
-.PHONY: backend frontend-web frontend-app frontend-ios frontend-android dev help install run-all reset
+.PHONY: backend frontend frontend-web frontend-app frontend-ios frontend-android dev help install run-all reset
 
 # Set paths
 BACKEND_DIR = ./backend
@@ -31,22 +31,22 @@ backend:
 # Start frontend Expo (normal mode)
 frontend:
 	@echo "Starting frontend..."
-	@cd $(FRONTEND_DIR) && npm run start
+	@cd $(FRONTEND_DIR) && npx expo start --tunnel
 
 # Start frontend Expo Web version
 frontend-web:
 	@echo "Starting web frontend..."
-	@cd $(FRONTEND_DIR) && npm run web
+	@cd $(FRONTEND_DIR) && npx expo start --web
 
 # Start frontend Expo iOS version
 frontend-ios:
 	@echo "Starting iOS frontend..."
-	@cd $(FRONTEND_DIR) && npm run ios
+	@cd $(FRONTEND_DIR) && npx expo start --ios
 
 # Start frontend Expo Android version
 frontend-android:
 	@echo "Starting Android frontend..."
-	@cd $(FRONTEND_DIR) && npm run android
+	@cd $(FRONTEND_DIR) && npx expo start --android
 
 # Start backend and frontend simultaneously (using multiple terminals)
 dev:
@@ -64,7 +64,7 @@ run-all:
 	@tmux rename-window -t wattrent:0 'WattRent'
 	@tmux split-window -h -t wattrent:0
 	@tmux send-keys -t wattrent:0.0 "cd $(BACKEND_DIR) && air" C-m
-	@tmux send-keys -t wattrent:0.1 "cd $(FRONTEND_DIR) && npm run web" C-m
+	@tmux send-keys -t wattrent:0.1 "cd $(FRONTEND_DIR) && npx expo start --web" C-m
 	@echo "Services started in tmux, please run 'tmux attach -t wattrent' to view"
 	@tmux attach -t wattrent
 
