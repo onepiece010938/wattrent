@@ -1,0 +1,121 @@
+# WattRent 專案開發規範
+
+## 專案概述
+WattRent 是一個幫助租戶計算電費和房租的行動應用程式。用戶可以透過拍照或上傳電表照片，自動識別電表度數，計算電費並生成付款通知訊息。
+
+## 技術堆疊
+
+### 前端
+- **框架**: Expo SDK 51 + React Native
+- **語言**: TypeScript
+- **路由**: Expo Router (File-based routing)
+- **狀態管理**: React Context API 或 Zustand
+- **UI 元件**: React Native Elements 或 NativeBase
+- **影像處理**: expo-camera, expo-image-picker
+- **資料儲存**: AsyncStorage 或 expo-secure-store
+
+### 後端
+- **語言**: Go 1.21+
+- **框架**: Gin Web Framework
+- **熱重載**: Air
+- **資料庫**: AWS DynamoDB (NoSQL)
+- **部署**: AWS Lambda + API Gateway
+- **影像識別**: AWS Textract 或 Google Cloud Vision API (免費額度)
+
+### 開發環境
+- **作業系統**: Windows 11
+- **Shell**: PowerShell
+- **版本控制**: Git
+
+## 開發原則
+
+### 前端開發
+1. 使用 TypeScript 進行型別安全開發
+2. 採用函數式元件和 React Hooks
+3. 保持元件小而專注，遵循單一職責原則
+4. 使用 Expo 管理的工作流程 (Managed Workflow)
+5. 支援 iOS、Android 和 Web 三個平台
+6. 實作響應式設計，適配不同螢幕尺寸
+7. 優先使用 Expo SDK 提供的 API
+
+### 後端開發
+1. 遵循 RESTful API 設計原則
+2. 使用中間件處理錯誤和日誌
+3. 實作適當的輸入驗證和錯誤處理
+4. 設計無狀態 API，適合 Lambda 部署
+5. 使用環境變數管理配置
+6. 實作 CORS 支援跨域請求
+
+### 資料庫設計 (DynamoDB)
+1. 設計適合 NoSQL 的資料模型
+2. 優化查詢效能，避免全表掃描
+3. 使用複合主鍵 (Partition Key + Sort Key)
+4. 實作適當的索引策略
+
+## 專案結構
+
+### 前端結構
+```
+frontend/wattrent/
+├── app/              # Expo Router 路由頁面
+│   ├── (tabs)/      # Tab 導航頁面
+│   ├── (auth)/      # 認證相關頁面
+│   └── _layout.tsx  # 根布局
+├── components/       # 可重用元件
+├── hooks/           # 自定義 Hooks
+├── services/        # API 服務
+├── utils/           # 工具函數
+├── types/           # TypeScript 型別定義
+└── constants/       # 常數配置
+```
+
+### 後端結構
+```
+backend/
+├── cmd/             # 應用程式入口
+├── internal/        # 內部套件
+│   ├── handlers/    # HTTP 處理器
+│   ├── models/      # 資料模型
+│   ├── services/    # 業務邏輯
+│   └── middleware/  # 中間件
+├── pkg/             # 可重用套件
+└── config/          # 配置檔案
+```
+
+## API 設計規範
+1. 使用版本控制: `/api/v1/`
+2. 使用複數資源名稱: `/meters`, `/bills`
+3. HTTP 動詞對應 CRUD 操作
+4. 統一的錯誤回應格式
+5. 使用 JWT 進行身份驗證
+
+## 安全性考量
+1. 實作適當的身份驗證和授權
+2. 使用 HTTPS 加密傳輸
+3. 驗證所有用戶輸入
+4. 實作速率限制防止濫用
+5. 安全儲存敏感資訊
+
+## 效能優化
+1. 實作影像壓縮以減少上傳大小
+2. 使用快取策略減少 API 呼叫
+3. 實作分頁和懶加載
+4. 優化 Lambda 冷啟動時間
+
+## 測試策略
+1. 前端使用 Jest 和 React Native Testing Library
+2. 後端使用 Go 內建測試框架
+3. 實作單元測試和整合測試
+4. 目標測試覆蓋率 > 70%
+
+## 部署流程
+1. 使用 GitHub Actions 進行 CI/CD
+2. 前端透過 Expo EAS Build 建置
+3. 後端使用 Serverless Framework 或 SAM 部署到 AWS
+4. 實作藍綠部署策略
+
+## 成本優化 (AWS 免費方案)
+1. Lambda: 每月 100 萬次請求免費
+2. API Gateway: 每月 100 萬次 API 呼叫免費
+3. DynamoDB: 25 GB 儲存空間免費
+4. 使用 CloudWatch 監控用量避免超支 
