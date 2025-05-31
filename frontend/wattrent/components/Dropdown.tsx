@@ -4,82 +4,86 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  ScrollView,
-  Pressable,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from '@/hooks/useTranslation';
+
+interface DropdownItem {
+  label: string;
+  value: string;
+}
 
 interface DropdownProps {
   value: string;
   onValueChange: (value: string) => void;
-  items: { label: string; value: string }[];
+  items: DropdownItem[];
   placeholder?: string;
-  className?: string;
 }
 
 export default function Dropdown({
   value,
   onValueChange,
   items,
-  placeholder = '請選擇',
-  className = '',
+  placeholder,
 }: DropdownProps) {
-  const [visible, setVisible] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const { t } = useTranslation();
+
   const selectedItem = items.find(item => item.value === value);
+  const displayText = selectedItem ? selectedItem.label : (placeholder || t('common.selectOption'));
+
+  const handleItemSelect = (item: DropdownItem) => {
+    onValueChange(item.value);
+    setShowDropdown(false);
+  };
 
   return (
     <>
       <TouchableOpacity
-        className={`flex-row items-center justify-between border border-gray-300 dark:border-gray-600 rounded-lg p-3 ${className}`}
-        onPress={() => setVisible(true)}
+        className="border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 bg-white dark:bg-gray-700 flex-row items-center justify-between"
+        onPress={() => setShowDropdown(true)}
       >
-        <Text className="text-gray-900 dark:text-gray-100 text-base">
-          {selectedItem?.label || placeholder}
+        <Text className="text-gray-900 dark:text-gray-100 flex-1">
+          {displayText}
         </Text>
         <Ionicons 
           name="chevron-down" 
           size={20} 
-          color="#9CA3AF"
+          color="#9CA3AF" 
         />
       </TouchableOpacity>
 
       <Modal
-        visible={visible}
-        transparent
+        visible={showDropdown}
+        transparent={true}
         animationType="fade"
-        onRequestClose={() => setVisible(false)}
+        onRequestClose={() => setShowDropdown(false)}
       >
-        <Pressable
-          className="flex-1 bg-black/50 justify-center px-4"
-          onPress={() => setVisible(false)}
+        <TouchableOpacity
+          className="flex-1 bg-black/50"
+          activeOpacity={1}
+          onPress={() => setShowDropdown(false)}
         >
-          <View className="bg-white dark:bg-gray-800 rounded-lg max-h-80">
-            <ScrollView>
-              {items.map((item) => (
-                <TouchableOpacity
-                  key={item.value}
-                  className={`p-4 border-b border-gray-200 dark:border-gray-700 ${
-                    item.value === value ? 'bg-primary-50 dark:bg-primary-900' : ''
-                  }`}
-                  onPress={() => {
-                    onValueChange(item.value);
-                    setVisible(false);
-                  }}
-                >
-                  <Text
-                    className={`text-base ${
-                      item.value === value
-                        ? 'text-primary-600 dark:text-primary-400 font-semibold'
-                        : 'text-gray-900 dark:text-gray-100'
-                    }`}
+          <View className="flex-1 justify-center items-center">
+            <View className="bg-white dark:bg-gray-800 rounded-2xl mx-8 max-h-80 shadow-lg">
+              <FlatList
+                data={items}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    className="px-4 py-3 border-b border-gray-200 dark:border-gray-700"
+                    onPress={() => handleItemSelect(item)}
                   >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                    <Text className="text-gray-900 dark:text-gray-100 text-base">
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
           </View>
-        </Pressable>
+        </TouchableOpacity>
       </Modal>
     </>
   );

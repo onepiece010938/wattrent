@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Bill } from '@/types';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface PaymentStatusDropdownProps {
   bill: Bill;
@@ -21,6 +22,7 @@ export default function PaymentStatusDropdown({
   onDeleteBill,
 }: PaymentStatusDropdownProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const { t } = useTranslation();
 
   const handleOptionSelect = (option: 'unpaid' | 'delete') => {
     setShowDropdown(false);
@@ -29,12 +31,12 @@ export default function PaymentStatusDropdown({
       onUpdatePaymentStatus(bill);
     } else if (option === 'delete') {
       Alert.alert(
-        '確認刪除',
-        '確定要刪除此帳單嗎？',
+        t('history.confirmDelete'),
+        t('history.confirmDeleteMessage'),
         [
-          { text: '取消', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: '刪除',
+            text: t('common.delete'),
             style: 'destructive',
             onPress: () => onDeleteBill(bill.id),
           },
@@ -55,7 +57,7 @@ export default function PaymentStatusDropdown({
       >
         <Ionicons name="checkmark-circle" size={16} color="#10B981" />
         <Text className="text-green-700 dark:text-green-300 text-sm ml-1">
-          已匯款
+          {t('paymentStatus.paid')}
         </Text>
         <Ionicons name="chevron-down" size={14} color="#10B981" style={{ marginLeft: 4 }} />
       </TouchableOpacity>
@@ -74,7 +76,7 @@ export default function PaymentStatusDropdown({
           <View className="flex-1 justify-center items-center">
             <View className="bg-white dark:bg-gray-800 rounded-2xl p-4 mx-8 shadow-lg">
               <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4 text-center">
-                選擇操作
+                {t('paymentStatus.selectAction')}
               </Text>
               
               <TouchableOpacity
@@ -83,7 +85,7 @@ export default function PaymentStatusDropdown({
               >
                 <Ionicons name="close-circle" size={20} color="#F59E0B" />
                 <Text className="text-gray-900 dark:text-white ml-3 text-base">
-                  標記為尚未匯款
+                  {t('paymentStatus.markAsUnpaid')}
                 </Text>
               </TouchableOpacity>
               
@@ -93,7 +95,7 @@ export default function PaymentStatusDropdown({
               >
                 <Ionicons name="trash-outline" size={20} color="#EF4444" />
                 <Text className="text-red-600 dark:text-red-400 ml-3 text-base">
-                  刪除帳單
+                  {t('paymentStatus.deleteBill')}
                 </Text>
               </TouchableOpacity>
               
@@ -102,7 +104,7 @@ export default function PaymentStatusDropdown({
                 onPress={() => setShowDropdown(false)}
               >
                 <Text className="text-gray-900 dark:text-white text-center text-base">
-                  取消
+                  {t('paymentStatus.cancel')}
                 </Text>
               </TouchableOpacity>
             </View>

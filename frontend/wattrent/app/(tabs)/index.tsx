@@ -5,10 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Text } from '~/components/nativewindui/Text';
 import { useColorScheme } from '~/lib/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { isDarkColorScheme } = useColorScheme();
+  const { t } = useTranslation();
 
   const handleQuickAction = (action: string) => {
     switch (action) {
@@ -35,10 +37,10 @@ export default function HomeScreen() {
           {/* Header */}
           <View className="mb-6">
             <Text variant="largeTitle" className="font-bold text-foreground">
-              WattRent
+              {t('home.title')}
             </Text>
             <Text variant="body" color="secondary" className="mt-1">
-              輕鬆管理您的電費與房租
+              {t('home.subtitle')}
             </Text>
           </View>
 
@@ -50,22 +52,22 @@ export default function HomeScreen() {
               color={isDarkColorScheme ? '#60A5FA' : '#2563EB'} 
             />
             <Text variant="title2" className="text-card-foreground mt-3 text-center">
-              歡迎使用 WattRent
+              {t('home.welcome')}
             </Text>
             <Text variant="body" color="secondary" className="mt-2 text-center">
-              開始拍攝您的第一張電表照片
+              {t('home.welcomeSubtitle')}
             </Text>
             <TouchableOpacity
-              className="mt-4 bg-primary rounded-lg px-6 py-3"
+              className="mt-4 bg-primary dark:bg-primary rounded-lg px-6 py-3"
               onPress={() => router.push('/(tabs)/capture')}
             >
-              <Text className="text-primary-foreground font-semibold">開始使用</Text>
+              <Text className="text-primary-foreground font-semibold">{t('home.startUsing')}</Text>
             </TouchableOpacity>
           </View>
 
           {/* Quick Actions */}
           <Text variant="title2" className="text-foreground mb-4">
-            快速操作
+            {t('home.quickActions')}
           </Text>
           <View className="flex-row flex-wrap gap-4">
             <TouchableOpacity
@@ -80,7 +82,7 @@ export default function HomeScreen() {
                 />
               </View>
               <Text variant="body" className="text-card-foreground font-medium">
-                拍攝電表
+                {t('home.captureMeter')}
               </Text>
             </TouchableOpacity>
 
@@ -96,7 +98,7 @@ export default function HomeScreen() {
                 />
               </View>
               <Text variant="body" className="text-card-foreground font-medium">
-                帳單記錄
+                {t('home.billHistory')}
               </Text>
             </TouchableOpacity>
 
@@ -112,7 +114,7 @@ export default function HomeScreen() {
                 />
               </View>
               <Text variant="body" className="text-card-foreground font-medium">
-                設定
+                {t('home.settings')}
               </Text>
             </TouchableOpacity>
           </View>

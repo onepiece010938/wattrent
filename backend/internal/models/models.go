@@ -46,6 +46,7 @@ type UserSettings struct {
 	UserID                 string    `json:"userId" dynamodbav:"userId"`
 	DefaultElectricityRate float64   `json:"defaultElectricityRate" dynamodbav:"defaultElectricityRate"`
 	DefaultRent            float64   `json:"defaultRent" dynamodbav:"defaultRent"`
+	PreviousMeterReading   float64   `json:"previousMeterReading" dynamodbav:"previousMeterReading"`
 	LandlordName           string    `json:"landlordName,omitempty" dynamodbav:"landlordName,omitempty"`
 	PaymentMethod          string    `json:"paymentMethod,omitempty" dynamodbav:"paymentMethod,omitempty"`
 	UpdatedAt              time.Time `json:"updatedAt" dynamodbav:"updatedAt"`

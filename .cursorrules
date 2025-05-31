@@ -10,7 +10,7 @@ WattRent 是一個幫助租戶計算電費和房租的行動應用程式。用�
 - **語言**: TypeScript
 - **路由**: Expo Router (File-based routing)
 - **狀態管理**: React Context API 或 Zustand
-- **UI 元件**: React Native Elements 或 NativeBase
+- **UI 元件**:  NativewindUI 或使用Tailwind和Nativewind自組元件，避免使用React Native Elements之類的套件
 - **影像處理**: expo-camera, expo-image-picker
 - **資料儲存**: AsyncStorage 或 expo-secure-store
 

@@ -20,10 +20,12 @@ func main() {
 
 	// 初始化服務
 	billService := services.NewBillService()
+	settingsService := services.NewSettingsService()
 
 	// 初始化處理器
 	billHandler := handlers.NewBillHandler(billService)
 	ocrHandler := handlers.NewOCRHandler()
+	settingsHandler := handlers.NewSettingsHandler(settingsService)
 
 	// API 路由
 	api := r.Group("/api/v1")
@@ -49,6 +51,16 @@ func main() {
 			bills.PUT("/:id", billHandler.UpdateBill)
 			bills.PUT("/:id/payment", billHandler.UpdateBillPayment)
 			bills.DELETE("/:id", billHandler.DeleteBill)
+		}
+
+		// 設定相關
+		settings := api.Group("/settings")
+		{
+			settings.GET("", settingsHandler.GetSettings)                                        // GET /api/v1/settings?userId=user1
+			settings.POST("", settingsHandler.SaveSettings)                                      // POST /api/v1/settings
+			settings.PATCH("/:userId", settingsHandler.UpdateSettings)                           // PATCH /api/v1/settings/user1
+			settings.PATCH("/:userId/meter-reading", settingsHandler.UpdatePreviousMeterReading) // PATCH /api/v1/settings/user1/meter-reading
+			settings.DELETE("/:userId", settingsHandler.DeleteSettings)                          // DELETE /api/v1/settings/user1
 		}
 
 		// 電表讀數相關

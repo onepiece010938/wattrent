@@ -16,11 +16,13 @@ import apiService from '@/services/api';
 import PaymentStatusDropdown from '@/components/PaymentStatusDropdown';
 import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function HistoryScreen() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const { isDarkColorScheme } = useColorScheme();
+  const { t, currentLanguage } = useTranslation();
 
   useFocusEffect(
     useCallback(() => {
@@ -34,7 +36,7 @@ export default function HistoryScreen() {
       const billsData = await apiService.getBills();
       setBills(billsData);
     } catch (error) {
-      console.error('載入帳單失敗:', error);
+      console.error(t('history.loadBillsFailed'), error);
       // 如果 API 連線失敗，使用模擬資料
       const mockBills: Bill[] = [
         {
@@ -47,9 +49,9 @@ export default function HistoryScreen() {
           electricityCost: 675,
           rent: 8000,
           totalAmount: 8675,
-          period: '2024年1月',
+          period: currentLanguage === 'zh-TW' ? '2024年1月' : 'January 2024',
           createdAt: '2024-01-15T10:00:00Z',
-          message: '房東您好，本月房租8000元加電費675元，總計8675元已匯款，請查收。',
+          message: t('history.billMessage', { rent: 8000, electricityCost: 675, totalAmount: 8675 }),
         },
         {
           id: '2',
@@ -61,10 +63,10 @@ export default function HistoryScreen() {
           electricityCost: 810,
           rent: 8000,
           totalAmount: 8810,
-          period: '2024年2月',
+          period: currentLanguage === 'zh-TW' ? '2024年2月' : 'February 2024',
           createdAt: '2024-02-15T10:00:00Z',
           paidAt: '2024-02-16T14:30:00Z',
-          message: '房東您好，本月房租8000元加電費810元，總計8810元已匯款，請查收。',
+          message: t('history.billMessage', { rent: 8000, electricityCost: 810, totalAmount: 8810 }),
         },
       ];
       setBills(mockBills);
@@ -88,22 +90,26 @@ export default function HistoryScreen() {
         // TODO: 更新帳單已分享狀態
       }
     } catch (error) {
-      Alert.alert('錯誤', '無法分享訊息');
+      Alert.alert(t('common.error'), t('history.cannotShareMessage'));
     }
   };
 
   const generateBillMessage = (bill: Bill): string => {
-    return `房東您好，本月房租${bill.rent}元加電費${bill.electricityCost}元，總計${bill.totalAmount}元已匯款，請查收。`;
+    return t('history.billMessage', { 
+      rent: bill.rent, 
+      electricityCost: bill.electricityCost, 
+      totalAmount: bill.totalAmount 
+    });
   };
 
   const deleteBill = (billId: string) => {
     Alert.alert(
-      '確認刪除',
-      '確定要刪除此帳單嗎？',
+      t('history.confirmDelete'),
+      t('history.confirmDeleteMessage'),
       [
-        { text: '取消', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: '刪除',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -112,10 +118,10 @@ export default function HistoryScreen() {
               const updatedBills = bills.filter(bill => bill.id !== billId);
               setBills(updatedBills);
               
-              Alert.alert('成功', '帳單已刪除');
+              Alert.alert(t('common.success'), t('history.billDeleted'));
             } catch (error) {
-              console.error('刪除帳單失敗:', error);
-              Alert.alert('錯誤', '無法刪除帳單');
+              console.error(t('history.deleteBillFailed'), error);
+              Alert.alert(t('common.error'), t('history.cannotDeleteBill'));
             }
           },
         },
@@ -141,14 +147,14 @@ export default function HistoryScreen() {
         try {
           await settingsService.updatePreviousMeterReading(bill.meterReading);
         } catch (error) {
-          console.error('更新前次電表度數失敗:', error);
+          console.error(t('history.updatePreviousMeterReadingFailed'), error);
         }
       }
       
-      Alert.alert('成功', bill.paidAt ? '已標記為尚未匯款' : '已標記為已匯款');
+      Alert.alert(t('common.success'), bill.paidAt ? t('history.markAsUnpaid') : t('history.markAsPaid'));
     } catch (error) {
-      console.error('更新付款狀態失敗:', error);
-      Alert.alert('錯誤', '無法更新付款狀態');
+      console.error(t('history.updatePaymentStatusFailed'), error);
+      Alert.alert(t('common.error'), t('history.cannotUpdatePaymentStatus'));
     }
   };
 
@@ -168,7 +174,7 @@ export default function HistoryScreen() {
           <View className="flex-row items-center bg-amber-100 dark:bg-amber-900 px-3 py-1 rounded-full">
             <Ionicons name="time" size={16} color="#F59E0B" />
             <Text className="text-amber-700 dark:text-amber-300 text-sm ml-1">
-              待匯款
+              {t('history.pendingPayment')}
             </Text>
           </View>
         )}
@@ -176,47 +182,47 @@ export default function HistoryScreen() {
 
       <View className="space-y-2 mb-4">
         <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">電表度數：</Text>
+          <Text className="text-sm text-muted-foreground">{t('history.meterReading')}：</Text>
           <Text className="text-sm text-card-foreground font-medium">
-            {item.meterReading} 度
+            {item.meterReading} {t('history.unit')}
           </Text>
         </View>
         
         <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">電費單價：</Text>
+          <Text className="text-sm text-muted-foreground">{t('history.electricityRate')}：</Text>
           <Text className="text-sm text-card-foreground font-medium">
-            ${item.electricityRate}/度
+            {t('history.currency')}{item.electricityRate}/{t('history.unit')}
           </Text>
         </View>
         
         <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">用電度數：</Text>
+          <Text className="text-sm text-muted-foreground">{t('history.electricityUsage')}：</Text>
           <Text className="text-sm text-card-foreground font-medium">
-            {item.electricityUsage} 度
+            {item.electricityUsage} {t('history.unit')}
           </Text>
         </View>
         
         <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">電費計算：</Text>
+          <Text className="text-sm text-muted-foreground">{t('history.electricityCalculation')}：</Text>
           <Text className="text-sm text-card-foreground font-medium">
-            {item.electricityUsage} × ${item.electricityRate} = ${item.electricityCost}
+            {item.electricityUsage} × {t('history.currency')}{item.electricityRate} = {t('history.currency')}{item.electricityCost}
           </Text>
         </View>
         
         <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">房租：</Text>
+          <Text className="text-sm text-muted-foreground">{t('history.rent')}：</Text>
           <Text className="text-sm text-card-foreground font-medium">
-            ${item.rent}
+            {t('history.currency')}{item.rent}
           </Text>
         </View>
         
         <View className="border-t border-border pt-2 mt-2">
           <View className="flex-row justify-between">
             <Text className="text-base font-semibold text-card-foreground">
-              總金額：
+              {t('history.totalAmount')}：
             </Text>
             <Text className="text-lg font-bold text-primary">
-              ${item.totalAmount}
+              {t('history.currency')}{item.totalAmount}
             </Text>
           </View>
         </View>
@@ -233,19 +239,19 @@ export default function HistoryScreen() {
             color={isDarkColorScheme ? '#60A5FA' : '#2563EB'} 
           />
           <Text className="text-primary text-sm font-medium ml-1">
-            分享
+            {t('common.share')}
           </Text>
         </TouchableOpacity>
 
         {!item.paidAt && (
           <>
             <TouchableOpacity
-              className="flex-1 flex-row items-center justify-center bg-primary rounded-lg py-2"
+              className="flex-1 flex-row items-center justify-center bg-primary dark:bg-primary rounded-lg py-2"
               onPress={() => togglePaymentStatus(item)}
             >
               <Ionicons name="checkmark" size={18} color="#FFFFFF" />
               <Text className="text-primary-foreground text-sm font-medium ml-1">
-                標記為已匯款
+                {t('history.markAsPaid')}
               </Text>
             </TouchableOpacity>
 
@@ -258,7 +264,7 @@ export default function HistoryScreen() {
                 size={18} 
                 color={isDarkColorScheme ? '#F87171' : '#DC2626'} 
               />
-              <Text className="text-destructive text-sm font-medium ml-1">刪除</Text>
+              <Text className="text-destructive text-sm font-medium ml-1">{t('common.delete')}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -270,7 +276,7 @@ export default function HistoryScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <View className="flex-1 px-5">
         <Text className="text-3xl font-bold text-foreground pt-5 pb-4">
-          帳單記錄
+          {t('history.title')}
         </Text>
 
         <FlatList
@@ -295,7 +301,7 @@ export default function HistoryScreen() {
                 color={isDarkColorScheme ? '#6B7280' : '#9CA3AF'} 
               />
               <Text className="text-muted-foreground text-base mt-4">
-                尚無帳單記錄
+                {t('history.noBills')}
               </Text>
             </View>
           }

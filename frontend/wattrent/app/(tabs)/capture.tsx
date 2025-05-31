@@ -18,11 +18,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import apiService from '@/services/api';
 import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function CaptureScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
   const { isDarkColorScheme } = useColorScheme();
+  const { t, currentLanguage } = useTranslation();
   
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -65,7 +67,7 @@ export default function CaptureScreen() {
       setRent(settings.defaultRent.toString());
       setPreviousReading(settings.previousMeterReading.toString());
     } catch (error) {
-      console.error('載入設定失敗:', error);
+      console.error(t('capture.loadSettingsFailed'), error);
     }
   };
 
@@ -81,8 +83,8 @@ export default function CaptureScreen() {
           processImage(photo.uri);
         }
       } catch (error) {
-        console.error('拍照失敗:', error);
-        Alert.alert('錯誤', '拍照失敗，請再試一次');
+        console.error(t('capture.takePictureFailed'), error);
+        Alert.alert(t('common.error'), t('capture.takePictureFailed'));
       }
     }
   };
@@ -101,8 +103,8 @@ export default function CaptureScreen() {
         processImage(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('選擇圖片失敗:', error);
-      Alert.alert('錯誤', '選擇圖片失敗，請再試一次');
+      console.error(t('capture.selectImageFailed'), error);
+      Alert.alert(t('common.error'), t('capture.selectImageFailed'));
     }
   };
 
@@ -115,15 +117,15 @@ export default function CaptureScreen() {
         setProcessing(false);
       }, 2000);
     } catch (error) {
-      console.error('影像處理失敗:', error);
-      Alert.alert('錯誤', '無法識別電表度數，請手動輸入');
+      console.error(t('capture.imageProcessingFailed'), error);
+      Alert.alert(t('common.error'), t('capture.imageProcessingFailed'));
       setProcessing(false);
     }
   };
 
   const calculateBill = async () => {
     if (!meterReading) {
-      Alert.alert('提示', '請輸入電表度數');
+      Alert.alert(t('common.error'), t('capture.pleaseEnterMeterReading'));
       return;
     }
 
@@ -133,13 +135,16 @@ export default function CaptureScreen() {
     const rentAmount = parseFloat(rent);
 
     if (currentReading < prevReading) {
-      Alert.alert('錯誤', '當前電表度數不能小於前次度數');
+      Alert.alert(t('common.error'), t('capture.currentReadingCannotBeLower'));
       return;
     }
 
     try {
       const now = new Date();
-      const period = `${now.getFullYear()}年${now.getMonth() + 1}月`;
+      const period = currentLanguage === 'zh-TW' 
+        ? `${now.getFullYear()}年${now.getMonth() + 1}月`
+        : `${now.toLocaleString('en-US', { month: 'long' })} ${now.getFullYear()}`;
+      
       const electricityUsage = currentReading - prevReading;
       const electricityCost = electricityUsage * rate;
       const totalAmount = electricityCost + rentAmount;
@@ -155,15 +160,15 @@ export default function CaptureScreen() {
         period: period,
       });
       
-      Alert.alert('成功', '帳單已計算並儲存', [
+      Alert.alert(t('common.success'), t('capture.billCalculatedAndSaved'), [
         {
-          text: '查看帳單',
+          text: t('capture.viewBill'),
           onPress: () => router.push('/(tabs)/history'),
         },
       ]);
     } catch (error) {
-      console.error('建立帳單失敗:', error);
-      Alert.alert('錯誤', '無法建立帳單，請檢查網路連線');
+      console.error(t('capture.createBillFailedConsole'), error);
+      Alert.alert(t('common.error'), t('capture.createBillFailed'));
     }
   };
 
@@ -196,13 +201,13 @@ export default function CaptureScreen() {
             color={isDarkColorScheme ? '#9CA3AF' : '#6B7280'} 
           />
           <Text className="text-lg text-foreground text-center mt-4">
-            需要相機權限才能拍攝電表
+            {t('capture.cameraPermissionTitle')}
           </Text>
           <TouchableOpacity
-            className="bg-primary rounded-lg px-6 py-3 mt-6"
+            className="bg-primary dark:bg-primary rounded-lg px-6 py-3 mt-6"
             onPress={requestPermission}
           >
-            <Text className="text-primary-foreground font-semibold">授予權限</Text>
+            <Text className="text-primary-foreground font-semibold">{t('capture.grantPermission')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -227,7 +232,7 @@ export default function CaptureScreen() {
               {processing && (
                 <View className="absolute inset-0 bg-black/70 rounded-2xl justify-center items-center">
                   <ActivityIndicator size="large" color="#FFFFFF" />
-                  <Text className="text-white mt-3 text-base">正在識別電表度數...</Text>
+                  <Text className="text-white mt-3 text-base">{t('capture.processingImage')}</Text>
                 </View>
               )}
             </View>
@@ -235,56 +240,56 @@ export default function CaptureScreen() {
             <View className="space-y-4">
               <View>
                 <Text className="text-sm font-medium text-muted-foreground mb-2">
-                  電表度數
+                  {t('capture.meterReading')}
                 </Text>
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={meterReading}
                   onChangeText={setMeterReading}
                   keyboardType="numeric"
-                  placeholder="請輸入電表度數"
+                  placeholder={t('capture.enterMeterReading')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
                 />
               </View>
 
               <View>
                 <Text className="text-sm font-medium text-muted-foreground mb-2">
-                  前次(月)電表度數
+                  {t('capture.previousMeterReading')}
                 </Text>
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={previousReading}
                   onChangeText={setPreviousReading}
                   keyboardType="numeric"
-                  placeholder="請輸入前次電表度數"
+                  placeholder={t('capture.enterPreviousMeterReading')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
                 />
               </View>
 
               <View>
                 <Text className="text-sm font-medium text-muted-foreground mb-2">
-                  電費單價 (元/度)
+                  {t('capture.electricityRate')}
                 </Text>
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={electricityRate}
                   onChangeText={setElectricityRate}
                   keyboardType="decimal-pad"
-                  placeholder="請輸入電費單價"
+                  placeholder={t('capture.enterElectricityRate')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
                 />
               </View>
 
               <View>
                 <Text className="text-sm font-medium text-muted-foreground mb-2">
-                  房租 (元)
+                  {t('capture.rent')}
                 </Text>
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={rent}
                   onChangeText={setRent}
                   keyboardType="numeric"
-                  placeholder="請輸入房租"
+                  placeholder={t('capture.enterRent')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
                 />
               </View>
@@ -301,17 +306,17 @@ export default function CaptureScreen() {
                   color={isDarkColorScheme ? '#60A5FA' : '#2563EB'} 
                 />
                 <Text className="text-primary font-semibold ml-2">
-                  重新拍攝
+                  {t('capture.retake')}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                className="flex-1 flex-row items-center justify-center bg-primary rounded-lg py-3"
+                className="flex-1 flex-row items-center justify-center bg-primary dark:bg-primary rounded-lg py-3"
                 onPress={calculateBill}
                 disabled={processing}
               >
                 <Ionicons name="calculator" size={20} color="#FFFFFF" />
-                <Text className="text-primary-foreground font-semibold ml-2">計算帳單</Text>
+                <Text className="text-primary-foreground font-semibold ml-2">{t('capture.calculateBill')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -326,7 +331,7 @@ export default function CaptureScreen() {
       <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text className="text-white mt-3 text-base">正在啟動相機...</Text>
+          <Text className="text-white mt-3 text-base">{t('capture.startingCamera')}</Text>
         </View>
       </SafeAreaView>
     );

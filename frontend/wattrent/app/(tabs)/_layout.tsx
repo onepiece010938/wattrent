@@ -4,10 +4,12 @@ import { Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from '@/hooks/useTranslation';
 
 export default function TabLayout() {
   const { isDarkColorScheme } = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   // 計算正確的底部導航高度
   const tabBarHeight = Platform.select({
@@ -49,7 +51,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: '首頁',
+          title: t('navigation.home'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? "home" : "home-outline"} 
@@ -62,7 +64,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="capture"
         options={{
-          title: '拍攝',
+          title: t('navigation.capture'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? "camera" : "camera-outline"} 
@@ -75,7 +77,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="history"
         options={{
-          title: '記錄',
+          title: t('navigation.history'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? "receipt" : "receipt-outline"} 
@@ -88,7 +90,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: '設定',
+          title: t('navigation.settings'),
           tabBarIcon: ({ color, focused }) => (
             <Ionicons 
               name={focused ? "settings" : "settings-outline"} 
