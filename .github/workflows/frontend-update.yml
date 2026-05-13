@@ -23,14 +23,14 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "EAS Update branch（預設 production）"
+        description: "EAS Update branch (production 暫時鎖住，發表前才開)"
         required: true
-        default: production
+        default: staging
         type: choice
-        options: [production, staging, preview]
+        options: [staging, preview] # 要開 prod 請加回 production
 
 concurrency:
-  group: frontend-update-${{ github.event.inputs.branch || 'production' }}
+  group: frontend-update-${{ github.event.inputs.branch || 'staging' }}
   cancel-in-progress: false
 
 permissions:
@@ -45,18 +45,18 @@ jobs:
         working-directory: frontend/wattrent
 
     env:
-      EAS_BRANCH: ${{ github.event.inputs.branch || 'production' }}
+      EAS_BRANCH: ${{ github.event.inputs.branch || 'staging' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: frontend/wattrent/package-lock.json
 
-      - uses: expo/expo-github-action@v8
+      - uses: expo/expo-github-action@v8 # v8 是最新 stable（仍 Node 20，上游未釋 v9）
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}

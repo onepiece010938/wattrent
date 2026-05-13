@@ -39,6 +39,14 @@ Settings → Secrets and variables → Actions → **Secrets**
 - **`staging`** — 自動部署，無 reviewer
 - **`production`** — 加 required reviewer（自己一人也加，當作雙重確認）
 
+## ⚠️ Production 暫時鎖住
+
+目前所有 deploy workflow（`infra.yml`、`backend-deploy.yml`、`firestore-deploy.yml`、
+`frontend-update.yml`）的 `workflow_dispatch` 選項只剩 `staging`。
+等 App 要送 Google Play / App Store 前夕再把 `production` 加回 `options` 陣列。
+理由：避免手滑、省錢（少跑一份 Cloud Run 與 Firestore）、也避免 IAM/secret 在 prod 漂移。
+（Terraform state 仍保留 `wattrent-production` workspace，隨時能解鎖。）
+
 ## 第一次跑 infra 之前
 
 1. 已完成 `terraform/README.md` 的 bootstrap（建 GCP project、HCP TFC 設定）

@@ -27,11 +27,11 @@ on:
   workflow_dispatch:
     inputs:
       env:
-        description: "Target environment"
+        description: "Target environment (production 暫時鎖住，發表前才開)"
         required: true
         default: staging
         type: choice
-        options: [staging, production]
+        options: [staging] # 要開 prod 請加回 production；詳見 workflow 檔頂註釋
       action:
         description: "Action"
         required: true
@@ -62,9 +62,9 @@ jobs:
       ENV_NAME: ${{ github.event.inputs.env || 'staging' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.15.2 # 1.10+ 才支援 cloud{} workspaces 的 key:value tags
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
