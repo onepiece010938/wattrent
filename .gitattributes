@@ -1,0 +1,75 @@
+# ──────────────────────────────────────────────────────────────────────────
+# 強制所有原始碼用 LF，避免 Windows core.autocrlf=true 把 CRLF 寫進 git blob
+# 後讓 Linux runner 上的 gofmt / prettier / 等工具一直跳「需要 reformat」。
+#
+# 規則順序：先 default to text=auto，再針對特定副檔名強制 lf / 標 binary。
+# ──────────────────────────────────────────────────────────────────────────
+
+# 預設：讓 git 自己判斷 text/binary，commit 時轉 LF，checkout 時依平台轉換
+* text=auto eol=lf
+
+# 程式碼 / 設定一律 LF
+*.go        text eol=lf
+*.mod       text eol=lf
+*.sum       text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.js        text eol=lf
+*.jsx       text eol=lf
+*.json      text eol=lf
+*.json5     text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.toml      text eol=lf
+*.tf        text eol=lf
+*.tfvars    text eol=lf
+*.hcl       text eol=lf
+*.sh        text eol=lf
+*.py        text eol=lf
+*.md        text eol=lf
+*.css       text eol=lf
+*.html      text eol=lf
+*.svg       text eol=lf
+*.proto     text eol=lf
+
+# Dockerfile / Makefile 等無副檔名
+Dockerfile     text eol=lf
+Dockerfile.*   text eol=lf
+Makefile       text eol=lf
+justfile       text eol=lf
+.dockerignore  text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+.editorconfig  text eol=lf
+.env.example   text eol=lf
+
+# Windows-only 腳本保留 CRLF
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# 二進位（不要被 line-ending 處理或 diff）
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.gz        binary
+*.tar       binary
+*.ttf       binary
+*.otf       binary
+*.woff      binary
+*.woff2     binary
+*.eot       binary
+*.mp3       binary
+*.mp4       binary
+*.wav       binary
+
+# Lock files：text 但避免 GitHub diff 顯示
+package-lock.json  text eol=lf linguist-generated=true
+yarn.lock          text eol=lf linguist-generated=true
+go.sum             text eol=lf linguist-generated=true
