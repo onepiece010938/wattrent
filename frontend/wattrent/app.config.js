@@ -63,9 +63,10 @@ export default {
       typedRoutes: true
     },
     extra: {
-      // 在這裡設定您的 API URL
-      // 使用 ngrok URL (記得更新為您的實際 URL)
-      apiUrl: "https://calf-positive-urgently.ngrok-free.app/api/v1"
+      // API URL 不再寫死。請需要時設環境變數：
+      //   $env:EXPO_PUBLIC_API_URL='https://wattrent-api-xxxx.a.run.app/api/v1'
+      // 沒設的話 lib/apiUrl.ts 會自動選 dev/staging fallback。
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || null
     }
   }
-}; 
+};

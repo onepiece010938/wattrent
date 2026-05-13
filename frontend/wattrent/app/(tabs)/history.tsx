@@ -17,6 +17,7 @@ import PaymentStatusDropdown from '@/components/PaymentStatusDropdown';
 import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
+import { formatPeriod } from '~/lib/period';
 
 export default function HistoryScreen() {
   const [bills, setBills] = useState<Bill[]>([]);
@@ -41,29 +42,27 @@ export default function HistoryScreen() {
       const mockBills: Bill[] = [
         {
           id: '1',
-          userId: 'user1',
-          meterReadingId: 'reading1',
           meterReading: 1500,
+          previousReading: 1350,
           electricityUsage: 150,
           electricityRate: 4.5,
           electricityCost: 675,
           rent: 8000,
           totalAmount: 8675,
-          period: currentLanguage === 'zh-TW' ? '2024年1月' : 'January 2024',
+          period: '2024-01',
           createdAt: '2024-01-15T10:00:00Z',
           message: t('history.billMessage', { rent: 8000, electricityCost: 675, totalAmount: 8675 }),
         },
         {
           id: '2',
-          userId: 'user1',
-          meterReadingId: 'reading2',
           meterReading: 1680,
+          previousReading: 1500,
           electricityUsage: 180,
           electricityRate: 4.5,
           electricityCost: 810,
           rent: 8000,
           totalAmount: 8810,
-          period: currentLanguage === 'zh-TW' ? '2024年2月' : 'February 2024',
+          period: '2024-02',
           createdAt: '2024-02-15T10:00:00Z',
           paidAt: '2024-02-16T14:30:00Z',
           message: t('history.billMessage', { rent: 8000, electricityCost: 810, totalAmount: 8810 }),
@@ -132,16 +131,14 @@ export default function HistoryScreen() {
   const togglePaymentStatus = async (bill: Bill) => {
     try {
       const isMarkingAsPaid = !bill.paidAt;
-      
-      const updatedBill = await apiService.updateBill(bill.id, {
-        paidAt: bill.paidAt ? undefined : new Date().toISOString(),
-      });
-      
+
+      const updatedBill = await apiService.setPaymentStatus(bill.id, isMarkingAsPaid);
+
       const updatedBills = bills.map(b =>
         b.id === bill.id ? updatedBill : b
       );
       setBills(updatedBills);
-      
+
       // 如果標記為已匯款，更新前次電表度數
       if (isMarkingAsPaid) {
         try {
@@ -150,7 +147,7 @@ export default function HistoryScreen() {
           console.error(t('history.updatePreviousMeterReadingFailed'), error);
         }
       }
-      
+
       Alert.alert(t('common.success'), bill.paidAt ? t('history.markAsUnpaid') : t('history.markAsPaid'));
     } catch (error) {
       console.error(t('history.updatePaymentStatusFailed'), error);
@@ -162,7 +159,7 @@ export default function HistoryScreen() {
     <View className="bg-card rounded-2xl p-5 mb-4 shadow-sm border border-border">
       <View className="flex-row items-center justify-between mb-4">
         <Text className="text-lg font-semibold text-card-foreground">
-          {item.period}
+          {formatPeriod(item.period, currentLanguage)}
         </Text>
         {item.paidAt ? (
           <PaymentStatusDropdown

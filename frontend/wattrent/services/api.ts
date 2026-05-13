@@ -1,97 +1,101 @@
-import { ApiResponse, Bill, MeterReading, OCRResult } from '@/types';
-import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+import { ApiResponse, Bill, OCRResult } from '@/types';
+import { resolveApiUrl } from '@/lib/apiUrl';
 
-// 根據平台選擇正確的 API URL
-const getApiUrl = () => {
-  // 優先使用 app.config.js 中的配置
-  if (Constants.expoConfig?.extra?.apiUrl) {
-    return Constants.expoConfig.extra.apiUrl;
-  }
-  
-  // 如果有環境變數，使用環境變數
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-  
-  // 開發環境下的 URL 配置
-  if (__DEV__) {
-    if (Platform.OS === 'web') {
-      // Web 可以使用 localhost
-      return 'http://localhost:8080/api/v1';
-    } else {
-      // 手機需要使用電腦的 IP 地址
-      return 'http://192.168.0.172:8080/api/v1';
-    }
-  }
-  
-  // 生產環境
-  return 'https://api.wattrent.com/api/v1';
-};
+const API_BASE_URL = resolveApiUrl();
 
-const API_BASE_URL = getApiUrl();
+export interface CreateBillPayload {
+  meterReading: number;
+  electricityRate: number;
+  rent: number;
+  /** YYYY-MM */
+  period: string;
+  imageUrl?: string;
+}
+
+export interface SignedUploadResult {
+  uploadUrl: string;
+  gcsPath: string;
+  expiresAt: string;
+}
 
 class ApiService {
+  /** 之後接 Firebase Auth 後改成從 token 拿 */
+  private authTokenProvider: (() => Promise<string | null>) | null = null;
+
+  setAuthTokenProvider(provider: () => Promise<string | null>) {
+    this.authTokenProvider = provider;
+  }
+
+  getBaseUrl(): string {
+    return API_BASE_URL;
+  }
+
   private async request<T>(
     endpoint: string,
     options?: RequestInit
   ): Promise<ApiResponse<T>> {
-    try {
-      console.log(`API Request: ${API_BASE_URL}${endpoint}`);
-      console.log('Using API URL:', API_BASE_URL);
-      
-      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          ...options?.headers,
-        },
-      });
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...((options?.headers as Record<string, string>) ?? {}),
+    };
 
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || data.message || '請求失敗');
+    if (this.authTokenProvider) {
+      try {
+        const token = await this.authTokenProvider();
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch (err) {
+        console.warn('failed to get auth token, sending request anonymously', err);
       }
-
-      return data;
-    } catch (error) {
-      console.error('API Error:', error);
-      
-      // 如果是網路錯誤，提供更友善的錯誤訊息
-      if (error instanceof TypeError && error.message === 'Network request failed') {
-        throw new Error('無法連線到伺服器，請確認：\n1. 後端服務是否已啟動\n2. 手機和電腦是否在同一網路\n3. 防火牆是否允許連線');
-      }
-      
-      throw error;
     }
+
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+    } catch (err) {
+      if (err instanceof TypeError) {
+        throw new Error(
+          `無法連線到後端 (${API_BASE_URL})：請確認 backend 已啟動，且手機與電腦在同一網路。`,
+        );
+      }
+      throw err;
+    }
+
+    let data: ApiResponse<T>;
+    try {
+      data = (await response.json()) as ApiResponse<T>;
+    } catch {
+      throw new Error(`HTTP ${response.status}: 無法解析回應`);
+    }
+
+    if (!response.ok || data.success === false) {
+      throw new Error(data.error || data.message || `HTTP ${response.status}`);
+    }
+    return data;
   }
 
   // OCR 相關
-  async processImage(imageBase64: string): Promise<OCRResult> {
+  async processImage(input: { imageBase64?: string; imageUrl?: string }): Promise<OCRResult> {
     const response = await this.request<OCRResult>('/ocr/process', {
       method: 'POST',
-      body: JSON.stringify({ imageBase64 }),
+      body: JSON.stringify(input),
+    });
+    return response.data!;
+  }
+
+  // Uploads
+  async signUpload(billId: string, contentType: string): Promise<SignedUploadResult> {
+    const response = await this.request<SignedUploadResult>('/uploads/sign', {
+      method: 'POST',
+      body: JSON.stringify({ billId, contentType }),
     });
     return response.data!;
   }
 
   // 帳單相關
-  async createBill(data: {
-    meterReading: number;
-    previousReading?: number;
-    electricityUsage?: number;
-    electricityRate: number;
-    electricityCost?: number;
-    rent: number;
-    totalAmount?: number;
-    period: string;
-    imageUrl?: string;
-  }): Promise<Bill> {
+  async createBill(payload: CreateBillPayload): Promise<Bill> {
     const response = await this.request<Bill>('/bills', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify(payload),
     });
     return response.data!;
   }
@@ -111,9 +115,11 @@ class ApiService {
     return response.data || null;
   }
 
-  async updateBillPayment(id: string): Promise<Bill> {
+  /** 切付款狀態（true = 已匯款） */
+  async setPaymentStatus(id: string, paid: boolean): Promise<Bill> {
     const response = await this.request<Bill>(`/bills/${id}/payment`, {
       method: 'PUT',
+      body: JSON.stringify({ paid }),
     });
     return response.data!;
   }
@@ -123,14 +129,6 @@ class ApiService {
       method: 'DELETE',
     });
   }
-
-  async updateBill(id: string, data: Partial<Bill>): Promise<Bill> {
-    const response = await this.request<Bill>(`/bills/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    return response.data!;
-  }
 }
 
-export default new ApiService(); 
+export default new ApiService();

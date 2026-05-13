@@ -21,12 +21,11 @@ import { SUPPORTED_LANGUAGES, type SupportedLanguage, getCurrentLanguage } from 
 
 // 系統預設值定義
 const SYSTEM_DEFAULT_SETTINGS: UserSettings = {
-  userId: 'user1',
   defaultElectricityRate: 4.5,
   defaultRent: 8000,
   previousMeterReading: 0,
   landlordName: '',
-  paymentMethod: '銀行轉帳',
+  paymentMethod: 'bank_transfer',
 };
 
 const DEFAULT_NOTIFICATIONS = true;
@@ -40,7 +39,6 @@ export default function SettingsScreen() {
   const { t, changeLanguage, currentLanguage } = useTranslation();
   
   const [settings, setSettings] = useState<UserSettings>({
-    userId: 'user1',
     defaultElectricityRate: 4.5,
     defaultRent: 8000,
     previousMeterReading: 0,
@@ -677,47 +675,83 @@ export default function SettingsScreen() {
           </View>
 
           {/* 儲存和重置按鈕 */}
-          <View className="flex-row space-x-4 mt-6">
-            {/* 重置按鈕 */}
-            <TouchableOpacity
-              className={`flex-1 rounded-lg py-4 border-2 ${
-                hasChanges 
-                  ? 'bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600' 
-                  : 'bg-gray-300 dark:bg-gray-600 border-gray-300 dark:border-gray-600'
-              }`}
-              onPress={async () => {
-                console.log('重置按鈕被點擊');
-                await restoreToLastSavedState();
-              }}
-              disabled={!hasChanges}
-            >
-              <Text className={`text-center text-lg font-semibold ${
-                hasChanges 
-                  ? 'text-gray-700 dark:text-gray-300' 
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}>
-                {t('common.reset')}
-              </Text>
-            </TouchableOpacity>
+          <View className="mt-8 px-4">
+            <View className="flex-row">
+              {/* 重置按鈕 */}
+              <TouchableOpacity
+                className={`flex-1 mr-4 rounded-xl py-4 px-6 border-2 shadow-md ${
+                  hasChanges 
+                    ? 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 shadow-gray-200 dark:shadow-gray-900' 
+                    : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 opacity-60'
+                }`}
+                onPress={async () => {
+                  console.log('重置按鈕被點擊');
+                  await restoreToLastSavedState();
+                }}
+                disabled={!hasChanges}
+                style={{
+                  shadowColor: '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 2,
+                  },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 3.84,
+                  elevation: 3,
+                }}
+              >
+                <View className="flex-row items-center justify-center">
+                  <Ionicons 
+                    name="refresh-outline" 
+                    size={20} 
+                    color={hasChanges ? (isDarkColorScheme ? '#D1D5DB' : '#374151') : '#9CA3AF'} 
+                  />
+                  <Text className={`ml-2 text-center text-lg font-semibold ${
+                    hasChanges 
+                      ? 'text-gray-700 dark:text-gray-300' 
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    {t('common.reset')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
 
-            {/* 儲存按鈕 */}
-            <TouchableOpacity
-              className={`flex-1 rounded-lg py-4 border-2 ${
-                hasChanges 
-                  ? 'bg-primary dark:bg-primary border-primary' 
-                  : 'bg-gray-300 dark:bg-gray-600 border-gray-300 dark:border-gray-600'
-              }`}
-              onPress={() => saveSettings(true)}
-              disabled={!hasChanges}
-            >
-              <Text className={`text-center text-lg font-semibold ${
-                hasChanges 
-                  ? 'text-primary-foreground' 
-                  : 'text-gray-500 dark:text-gray-400'
-              }`}>
-                {t('settings.saveSettings')}
-              </Text>
-            </TouchableOpacity>
+              {/* 儲存按鈕 */}
+              <TouchableOpacity
+                className={`flex-1 ml-4 rounded-xl py-4 px-6 border-2 shadow-lg ${
+                  hasChanges 
+                    ? 'bg-blue-500 dark:bg-blue-600 border-blue-500 dark:border-blue-600 shadow-blue-200 dark:shadow-blue-900' 
+                    : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 opacity-60'
+                }`}
+                onPress={() => saveSettings(true)}
+                disabled={!hasChanges}
+                style={{
+                  shadowColor: hasChanges ? '#3B82F6' : '#000',
+                  shadowOffset: {
+                    width: 0,
+                    height: 3,
+                  },
+                  shadowOpacity: hasChanges ? 0.3 : 0.1,
+                  shadowRadius: 4.65,
+                  elevation: 6,
+                }}
+              >
+                <View className="flex-row items-center justify-center">
+                  <Ionicons 
+                    name="checkmark-circle-outline" 
+                    size={20} 
+                    color={hasChanges ? '#FFFFFF' : '#9CA3AF'} 
+                  />
+                  <Text className={`ml-2 text-center text-lg font-semibold ${
+                    hasChanges 
+                      ? 'text-white' 
+                      : 'text-gray-500 dark:text-gray-400'
+                  }`}>
+                    {t('settings.saveSettings')}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* 版本資訊 */}

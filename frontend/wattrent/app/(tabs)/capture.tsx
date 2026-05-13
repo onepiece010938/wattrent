@@ -19,12 +19,15 @@ import apiService from '@/services/api';
 import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
+import { currentPeriod } from '~/lib/period';
 
 export default function CaptureScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
   const { isDarkColorScheme } = useColorScheme();
   const { t, currentLanguage } = useTranslation();
+  // currentLanguage 只在顯示層使用；period 一律以 YYYY-MM 送 backend
+  void currentLanguage;
   
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
@@ -76,11 +79,11 @@ export default function CaptureScreen() {
       try {
         const photo = await cameraRef.current.takePictureAsync({
           quality: 0.8,
-          base64: false,
+          base64: true,
         });
         if (photo) {
           setCapturedImage(photo.uri);
-          processImage(photo.uri);
+          processImage(photo.base64 ?? null);
         }
       } catch (error) {
         console.error(t('capture.takePictureFailed'), error);
@@ -96,11 +99,13 @@ export default function CaptureScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setCapturedImage(result.assets[0].uri);
-        processImage(result.assets[0].uri);
+        const asset = result.assets[0];
+        setCapturedImage(asset.uri);
+        processImage(asset.base64 ?? null);
       }
     } catch (error) {
       console.error(t('capture.selectImageFailed'), error);
@@ -108,17 +113,21 @@ export default function CaptureScreen() {
     }
   };
 
-  const processImage = async (imageUri: string) => {
+  const processImage = async (imageBase64: string | null) => {
+    if (!imageBase64) {
+      // 拿不到 base64 時跳過 OCR，讓使用者手動輸入
+      return;
+    }
     setProcessing(true);
     try {
-      // TODO: 實作 OCR 處理
-      setTimeout(() => {
-        setMeterReading('12345');
-        setProcessing(false);
-      }, 2000);
+      const result = await apiService.processImage({ imageBase64 });
+      if (result?.reading != null) {
+        setMeterReading(String(result.reading));
+      }
     } catch (error) {
       console.error(t('capture.imageProcessingFailed'), error);
       Alert.alert(t('common.error'), t('capture.imageProcessingFailed'));
+    } finally {
       setProcessing(false);
     }
   };
@@ -140,26 +149,16 @@ export default function CaptureScreen() {
     }
 
     try {
-      const now = new Date();
-      const period = currentLanguage === 'zh-TW' 
-        ? `${now.getFullYear()}年${now.getMonth() + 1}月`
-        : `${now.toLocaleString('en-US', { month: 'long' })} ${now.getFullYear()}`;
-      
-      const electricityUsage = currentReading - prevReading;
-      const electricityCost = electricityUsage * rate;
-      const totalAmount = electricityCost + rentAmount;
-      
+      const period = currentPeriod();
+
       const bill = await apiService.createBill({
         meterReading: currentReading,
-        previousReading: prevReading,
-        electricityUsage: electricityUsage,
         electricityRate: rate,
-        electricityCost: electricityCost,
         rent: rentAmount,
-        totalAmount: totalAmount,
-        period: period,
+        period,
       });
-      
+      void bill;
+
       Alert.alert(t('common.success'), t('capture.billCalculatedAndSaved'), [
         {
           text: t('capture.viewBill'),
