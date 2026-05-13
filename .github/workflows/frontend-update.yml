@@ -1,0 +1,72 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Frontend OTA Update（推 EAS Update，使用者下次開 App 自動拉新版 JS）
+#
+# 適用：JS-only 改動（不改 native 模組／不升級 Expo SDK）
+# 觸發：push to main 且改了 frontend/wattrent/app|components|services|lib|locales
+# ──────────────────────────────────────────────────────────────────────────
+
+name: Frontend Update (EAS OTA)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/wattrent/app/**"
+      - "frontend/wattrent/components/**"
+      - "frontend/wattrent/services/**"
+      - "frontend/wattrent/lib/**"
+      - "frontend/wattrent/locales/**"
+      - "frontend/wattrent/hooks/**"
+      - "frontend/wattrent/utils/**"
+      - "frontend/wattrent/app.config.js"
+      - ".github/workflows/frontend-update.yml"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "EAS Update branch（預設 production）"
+        required: true
+        default: production
+        type: choice
+        options: [production, staging, preview]
+
+concurrency:
+  group: frontend-update-${{ github.event.inputs.branch || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    name: EAS Update
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/wattrent
+
+    env:
+      EAS_BRANCH: ${{ github.event.inputs.branch || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/wattrent/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Publish OTA
+        run: |
+          eas update \
+            --branch "$EAS_BRANCH" \
+            --message "${{ github.event.head_commit.message || format('Manual update from {0}', github.sha) }}" \
+            --non-interactive

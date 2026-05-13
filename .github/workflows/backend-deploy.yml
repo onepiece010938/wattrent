@@ -1,0 +1,93 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Backend Deploy: 推 image 到 Artifact Registry → 部署 Cloud Run
+#
+# 觸發：push to main 且改了 backend/ 或 Dockerfile
+# 認證：Workload Identity Federation（OIDC，無 long-lived key）
+# ──────────────────────────────────────────────────────────────────────────
+
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-deploy.yml"
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Target environment"
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: backend-deploy-${{ github.event.inputs.env || 'staging' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.env || 'staging' }}
+
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }} # e.g. wattrent-staging
+      GCP_REGION: asia-east1
+      AR_REPO: wattrent
+      SERVICE_NAME: wattrent-api
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SA_EMAIL }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build image
+        run: |
+          IMAGE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/api:${{ env.IMAGE_TAG }}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          docker build \
+            -f backend/Dockerfile \
+            --build-arg VERSION="${{ env.IMAGE_TAG }}" \
+            -t "$IMAGE" \
+            backend
+
+      - name: Push image
+        run: |
+          docker push "$IMAGE"
+          docker tag "$IMAGE" "${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/api:latest"
+          docker push "${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/api:latest"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "${{ env.SERVICE_NAME }}" \
+            --image="$IMAGE" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --quiet
+
+      - name: Verify deployment
+        run: |
+          URL=$(gcloud run services describe "${{ env.SERVICE_NAME }}" \
+            --region="${{ env.GCP_REGION }}" \
+            --project="${{ env.GCP_PROJECT_ID }}" \
+            --format="value(status.url)")
+          echo "Deployed to: $URL"
+          curl -fsSL "$URL/health" || (echo "::error::Health check failed" && exit 1)

@@ -1,28 +1,90 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# ──────────────────────────────────────────────────────────────────────────
+# WattRent root .gitignore
+# 子目錄（frontend/、terraform/、backend/）有更細的 ignore 規則
+# ──────────────────────────────────────────────────────────────────────────
+
+# === Go ===
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
-
-# Output of the go coverage tool, specifically when used with LiteIDE
 *.out
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
 go.work
 go.work.sum
 
-# env file
-.env
-
-# For air
+# Air 熱重載輸出
+**/tmp/
 */tmp
+
+# === Node / Expo / 前端產物 ===
+node_modules/
+dist/
+build/
+.expo/
+web-build/
+tmp-web-bundle/
+.metro-health-check*
+*.tsbuildinfo
+
+# === 環境變數 / Secret（一律不進 repo） ===
+.env
+.env.*
+!.env.example
+*.local
+*.local.*
+!*.local.example
+
+# Service account / OIDC / Auth credentials
+*-key.json
+*service-account*.json
+gha-creds-*.json
+firebase-adminsdk-*.json
+credentials.tfrc.json
+.terraformrc
+terraform.rc
+
+# === Terraform local artefacts（terraform/.gitignore 也有） ===
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.tfstate.lock.info
+
+# Local override tfvars（含真實 billing account / domain）
+# 共用值請放 TFC workspace variables；個人實驗用 *.local.tfvars
+**/envs/*.local.tfvars
+**/*.auto.tfvars
+**/*.auto.tfvars.json
+!**/*.tfvars.example
+
+# === IDE / OS ===
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === 日誌 / 暫存 ===
+*.log
+logs/
+*.bak
+*.swp
+*~
+
+# === Cloud Function 打包暫存 ===
+**/.build/
+**/__pycache__/
+*.pyc
+
+# === 其他 ===
+coverage/
+.nyc_output/

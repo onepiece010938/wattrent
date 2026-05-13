@@ -1,0 +1,98 @@
+rules_version = '2';
+
+// WattRent Firestore Security Rules
+//
+// 設計原則：
+//   1. 一律走 Firebase Auth，未認證一律拒絕
+//   2. 使用者只能讀寫自己 /users/{uid}/... 之下的資料
+//   3. 寫入做最小驗證（型別、必填、值域）；複雜邏輯由後端 Admin SDK 處理
+//   4. 後端 Cloud Run service account 使用 Admin SDK 會繞過這些 rules
+//
+// 詳細設計請見 docs/firestore-schema.md
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────── helpers ───────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isPositiveNumber(v) {
+      return v is number && v >= 0;
+    }
+
+    function isNonEmptyString(v) {
+      return v is string && v.size() > 0;
+    }
+
+    // ─────────────────── /users/{userId} ───────────────────
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      // 第一次登入時建立，必須與 Auth token 對齊
+      allow create: if isOwner(userId)
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.updatedAt == request.time;
+
+      // 不允許改 email / createdAt
+      allow update: if isOwner(userId)
+                    && request.resource.data.email == resource.data.email
+                    && request.resource.data.createdAt == resource.data.createdAt
+                    && request.resource.data.updatedAt == request.time;
+
+      // 刪除帳號走後端流程（軟刪除）
+      allow delete: if false;
+
+      // ─────── /users/{userId}/settings/{docId} ───────
+      match /settings/{docId} {
+        allow read: if isOwner(userId);
+
+        allow write: if isOwner(userId)
+                     && docId == 'current'
+                     && isPositiveNumber(request.resource.data.defaultElectricityRate)
+                     && isPositiveNumber(request.resource.data.defaultRent)
+                     && isPositiveNumber(request.resource.data.previousMeterReading)
+                     && request.resource.data.updatedAt == request.time;
+      }
+
+      // ─────── /users/{userId}/bills/{billId} ───────
+      match /bills/{billId} {
+        allow read: if isOwner(userId);
+
+        allow create: if isOwner(userId)
+                      && isPositiveNumber(request.resource.data.meterReading)
+                      && isPositiveNumber(request.resource.data.previousReading)
+                      && request.resource.data.meterReading >= request.resource.data.previousReading
+                      && isPositiveNumber(request.resource.data.electricityRate)
+                      && isPositiveNumber(request.resource.data.rent)
+                      && isNonEmptyString(request.resource.data.period)
+                      && request.resource.data.createdAt == request.time
+                      && request.resource.data.updatedAt == request.time;
+
+        // 從 client 端只允許更新 paidAt + updatedAt（標記已付款）
+        // 其他欄位修改要走後端 Admin SDK
+        allow update: if isOwner(userId)
+                      && request.resource.data.diff(resource.data)
+                          .affectedKeys()
+                          .hasOnly(['paidAt', 'updatedAt']);
+
+        // 已付款的 bill 不能刪
+        allow delete: if isOwner(userId)
+                      && resource.data.paidAt == null;
+      }
+    }
+
+    // ─────────────────── default deny ───────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

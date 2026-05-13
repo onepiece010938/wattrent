@@ -1,0 +1,82 @@
+# ──────────────────────────────────────────────────────────────────────────
+# CI: 後端 + 前端 lint / test（每個 PR 必跑）
+# ──────────────────────────────────────────────────────────────────────────
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# 同 PR 推新 commit 取消舊的 run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ────────────────────────── 後端 ──────────────────────────
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: gofmt
+        run: |
+          set -euo pipefail
+          fmt_diff=$(gofmt -l .)
+          if [ -n "$fmt_diff" ]; then
+            echo "::error::gofmt 未通過：$fmt_diff"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Build
+        run: go build -o /tmp/wattrent-api ./...
+
+  # ────────────────────────── 前端 ──────────────────────────
+  frontend:
+    name: Frontend (Expo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/wattrent
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/wattrent/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npx expo lint
+
+      - name: TypeScript check
+        run: npx tsc --noEmit

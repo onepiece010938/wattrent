@@ -1,0 +1,113 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Infra: Terraform plan (PR) / apply (main)
+#
+# 認證模型：
+#   - TFC API：TF_API_TOKEN（GitHub repo secret，HCP TFC 個人或 team token）
+#   - GCP：TFC workspace 環境變數 TFC_GCP_* → TFC runner 自動向 GCP STS
+#          換短效 ADC，再 impersonate tfc-runner SA。
+#          GitHub runner 完全不接觸 GCP credential。
+#
+# 執行模式：TFC workspace 必須選 "Remote"，所有 plan / apply 跑在 TFC
+#           runner 上（這裡的 terraform CLI 只負責觸發 + 串 log）。
+# ──────────────────────────────────────────────────────────────────────────
+
+name: Infra
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/infra.yml"
+  workflow_dispatch:
+    inputs:
+      env:
+        description: "Target environment"
+        required: true
+        default: staging
+        type: choice
+        options: [staging, production]
+      action:
+        description: "Action"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply]
+
+concurrency:
+  group: infra-${{ github.event.inputs.env || 'staging' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.action || (github.event_name == 'pull_request' && 'plan' || 'apply') }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: terraform
+
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_WORKSPACE: ${{ github.event.inputs.env == 'production' && 'wattrent-production' || 'wattrent-staging' }}
+      ENV_NAME: ${{ github.event.inputs.env || 'staging' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Init
+        run: terraform init
+
+      - name: Validate
+        run: terraform validate -no-color
+
+      - name: fmt check
+        run: terraform fmt -check -recursive
+
+      - name: Plan
+        if: github.event_name == 'pull_request' || github.event.inputs.action == 'plan'
+        run: |
+          terraform plan \
+            -var-file="envs/${{ env.ENV_NAME }}.tfvars" \
+            -no-color \
+            -out=tfplan \
+            -detailed-exitcode || (code=$?; [ $code -eq 2 ] && true || exit $code)
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          terraform show -no-color tfplan > plan.txt
+          {
+            echo '## Terraform Plan (`'"${{ env.ENV_NAME }}"'`)'
+            echo ''
+            echo '```hcl'
+            head -c 50000 plan.txt
+            echo ''
+            echo '```'
+          } > comment.md
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file comment.md
+
+      - name: Apply
+        if: |
+          (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+        run: |
+          terraform apply \
+            -var-file="envs/${{ env.ENV_NAME }}.tfvars" \
+            -auto-approve

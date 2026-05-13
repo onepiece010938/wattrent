@@ -1,0 +1,72 @@
+# ──────────────────────────────────────────────────────────────────────────
+# Frontend Native Build（EAS Build → 出 IPA / AAB）
+#
+# 觸發：純手動。改 native 模組／升 SDK／要送 store 才用
+# ──────────────────────────────────────────────────────────────────────────
+
+name: Frontend Build (EAS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS Build profile"
+        required: true
+        default: preview
+        type: choice
+        options: [development, preview, production]
+      platform:
+        description: "Platform"
+        required: true
+        default: all
+        type: choice
+        options: [ios, android, all]
+      submit:
+        description: "建完直接 submit 到 store？"
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: frontend-build-${{ github.event.inputs.profile }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: EAS Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/wattrent
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/wattrent/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: |
+          SUBMIT_FLAG=""
+          if [ "${{ github.event.inputs.submit }}" = "true" ]; then
+            SUBMIT_FLAG="--auto-submit"
+          fi
+          eas build \
+            --platform "${{ github.event.inputs.platform }}" \
+            --profile "${{ github.event.inputs.profile }}" \
+            --non-interactive \
+            $SUBMIT_FLAG
