@@ -16,10 +16,14 @@ terraform {
     organization = "wattrent" # 在 https://app.terraform.io 建立同名 org
 
     workspaces {
-      tags = ["wattrent"]
-      # workspace 用 CLI 切換：
-      #   TF_WORKSPACE=staging    terraform plan
-      #   TF_WORKSPACE=production terraform plan
+      # Key:value tags（Terraform CLI 1.10+ 才支援）
+      # 兩個 workspace（wattrent-staging / wattrent-production）都有 `app:wattrent` 標籤，
+      # 下面這個選擇器會同時 match 到。具體看哪一個靠 TF_WORKSPACE env var：
+      #   TF_WORKSPACE=wattrent-staging    terraform plan
+      #   TF_WORKSPACE=wattrent-production terraform plan
+      tags = {
+        app = "wattrent"
+      }
     }
   }
 

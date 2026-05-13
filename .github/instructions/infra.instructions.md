@@ -10,9 +10,9 @@ description: "WattRent IaC（Terraform + GCP + Cloudflare + Sentry）規範"
 ## 全貌
 
 * Provider：`hashicorp/google`、`hashicorp/google-beta`、`cloudflare/cloudflare`、`jianyuan/sentry`、`hashicorp/random`
-* Terraform 版本：`>= 1.9.0`（OpenTofu 1.7+ 也相容）
+* Terraform 版本：`>= 1.10.0`（cloud{} workspaces 用 key:value tags 需要 1.10+；CI 跑 1.15.x；OpenTofu 1.8+ 也相容）
 * State：HCP Terraform Cloud（org `wattrent`）
-* 兩個 workspace：`wattrent-staging`、`wattrent-production`
+* 兩個 workspace：`wattrent-staging`、`wattrent-production`（皆掛 tag `app:wattrent` + 各自的 `env:` 區分）
 * 環境檔：`envs/staging.tfvars`、`envs/production.tfvars`
 
 完整 bootstrap 步驟見 [terraform/README.md](../../terraform/README.md)。

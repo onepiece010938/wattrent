@@ -1,12 +1,13 @@
 # ──────────────────────────────────────────────────────────────────────────
 # Terraform & Provider 版本鎖定
 #
-# Terraform 版本：1.9+（支援 import block、check block）
-# OpenTofu 1.7+ 也可使用（語法相容）
-# ──────────────────────────────────────────────────────────────────────────
+# Terraform 版本：1.10+（支援 cloud{} workspaces 的 key:value tags；
+#                       1.9+ 仍有 import block / check block。CI 用 1.15.x）
+# OpenTofu 1.8+ 也可使用（key:value tags 在 OpenTofu 1.8 跟進）
+# ─────────────────────────────────────────────────────────────────────────
 
 terraform {
-  required_version = ">= 1.9.0"
+  required_version = ">= 1.10.0"
 
   required_providers {
     google = {
