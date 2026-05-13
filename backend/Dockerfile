@@ -9,8 +9,8 @@
 # ──────────────────────────────────────────────────────────────────────────
 
 # ───────────── builder ─────────────
-# 用浮動 tag 1.24-alpine：自動拉到該系列最新 patch（含 stdlib CVE 修補）
-FROM golang:1.24-alpine AS builder
+# 用浮動 tag 1.25-alpine：自動拉到該系列最新 patch（含 stdlib CVE 修補）
+FROM golang:1.25-alpine AS builder
 
 WORKDIR /src
 
