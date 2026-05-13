@@ -52,6 +52,9 @@ secrets.txt
 *.secret
 .commit-msg.tmp
 
+# Local-only docs (private design notes, not for public repo)
+docs/
+
 # === Terraform local artefacts（terraform/.gitignore 也有） ===
 **/.terraform/
 *.tfstate

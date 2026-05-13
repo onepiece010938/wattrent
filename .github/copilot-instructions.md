@@ -56,8 +56,6 @@ wattrent/
 │   ├── instructions/            scope-specific 規則
 │   └── workflows/               CI / deploy / infra / security
 │
-├── docs/系統分析與意見回饋.md
-├── docs/firestore-schema.md     Firestore schema 設計
 ├── Dockerfile                   舊的開發容器（漸退場）
 ├── Makefile / justfile          一鍵啟動（justfile 為主）
 └── README.md
@@ -102,7 +100,9 @@ just frontend         # tunnel 模式給實機 Expo Go 掃描
 | CI/CD | GitHub Actions + Workload Identity Federation（無 long-lived key） |
 | 觀測 | Sentry（前後端） + Cloud Logging |
 
-詳見：[docs/firestore-schema.md](../docs/firestore-schema.md)、[terraform/README.md](../terraform/README.md)、[.github/workflows/README.md](./workflows/README.md)
+詳見：[terraform/README.md](../terraform/README.md)、[.github/workflows/README.md](./workflows/README.md)
+
+> （內部設計/成本記錄請看本機 `docs/` folder，該資料夾不進 repo）
 
 ## 共通規範
 
@@ -149,5 +149,5 @@ just frontend         # tunnel 模式給實機 Expo Go 掃描
 
 ## 文件規範
 
-* 修改架構 / 部署 / 雲端服務時，請同步更新 [docs/系統分析與意見回饋.md](../docs/系統分析與意見回饋.md) 與 [docs/firestore-schema.md](../docs/firestore-schema.md)。
+* `docs/` 資料夾不在 repo中（已 gitignore）— 重要架構 / 成本 / 決策記錄都在本機 `docs/` 下，請說明變更時同步更新。
 * 不要在沒被要求的情況下大量新增 markdown 檔。

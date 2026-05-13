@@ -1,6 +1,5 @@
 # WattRent Terraform / OpenTofu 結構
 
-> 對應 [docs/系統分析與意見回饋.md](../docs/系統分析與意見回饋.md) 與 [docs/firestore-schema.md](../docs/firestore-schema.md)。
 > 管理 GCP（Cloud Run、Firestore、GCS、Vertex AI 選配、Identity Platform、Budget kill-switch）+ Cloudflare DNS + Sentry + Gemini API key Secret。
 
 ---

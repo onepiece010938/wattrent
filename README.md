@@ -119,8 +119,6 @@ wattrent/
 
 ## 詳細文件
 
-- [docs/系統分析與意見回饋.md](docs/系統分析與意見回饋.md) — 完整架構、成本、決策記錄
-- [docs/firestore-schema.md](docs/firestore-schema.md) — Firestore schema 設計
 - [terraform/README.md](terraform/README.md) — IaC bootstrap 與部署
 - [.github/copilot-instructions.md](.github/copilot-instructions.md) — AI 助手規範
 - [.github/workflows/README.md](.github/workflows/README.md) — CI/CD workflow 一覽

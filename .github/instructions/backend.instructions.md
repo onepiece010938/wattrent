@@ -39,7 +39,7 @@ backend/
 
 ## 資料層（Firestore）
 
-詳見 [docs/firestore-schema.md](../../docs/firestore-schema.md)。重點：
+Schema 設計詳見本機 `docs/firestore-schema.md`（該資料夾不進 repo）。重點：
 
 * 全部使用 subcollection：`/users/{uid}/bills/{billId}`、`/users/{uid}/settings/current`。
 * **不存** `userId` 欄位；路徑就是 owner。
