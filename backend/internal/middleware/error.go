@@ -1,44 +1,98 @@
 package middleware
 
 import (
-	"log"
+	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"wattrent/internal/models"
 )
 
-// ErrorHandler 統一錯誤處理
+// AppError 業務層用的錯誤型別。
+//
+// HTTPStatus：對應的 HTTP status code
+// Key：i18n key（前端翻譯）
+// Cause：原始錯誤（不會暴露給 client，只進 log）
+type AppError struct {
+	HTTPStatus int
+	Key        string
+	Cause      error
+}
+
+func (e *AppError) Error() string {
+	if e.Cause != nil {
+		return e.Key + ": " + e.Cause.Error()
+	}
+	return e.Key
+}
+
+func (e *AppError) Unwrap() error { return e.Cause }
+
+// 預設錯誤型別。i18n key 全部 dot-separated。
+var (
+	ErrNotFound       = &AppError{HTTPStatus: http.StatusNotFound, Key: "errors.not_found"}
+	ErrBadRequest     = &AppError{HTTPStatus: http.StatusBadRequest, Key: "errors.bad_request"}
+	ErrUnauthorized   = &AppError{HTTPStatus: http.StatusUnauthorized, Key: "errors.unauthorized"}
+	ErrInternal       = &AppError{HTTPStatus: http.StatusInternalServerError, Key: "errors.internal"}
+	ErrUpstreamFailed = &AppError{HTTPStatus: http.StatusBadGateway, Key: "errors.upstream_failed"}
+)
+
+// ErrorHandler 統一處理 c.Error() 推進來的錯誤。
+//
+// 處理順序：
+//  1. AppError → 用內含的 status / key
+//  2. gRPC NotFound → ErrNotFound
+//  3. gin bind error → ErrBadRequest
+//  4. 其他 → ErrInternal
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
 
-		// 檢查是否有錯誤
-		if len(c.Errors) > 0 {
-			err := c.Errors.Last()
-			log.Printf("Error occurred: %v", err)
+		if len(c.Errors) == 0 {
+			return
+		}
 
-			// 根據錯誤類型返回不同的狀態碼
-			var statusCode int
-			var message string
+		err := c.Errors.Last().Err
+		appErr := mapError(err)
 
-			switch err.Type {
-			case gin.ErrorTypeBind:
-				statusCode = http.StatusBadRequest
-				message = "請求參數錯誤"
-			case gin.ErrorTypePublic:
-				statusCode = http.StatusBadRequest
-				message = err.Error()
-			default:
-				statusCode = http.StatusInternalServerError
-				message = "伺服器內部錯誤"
-			}
+		// log 完整 cause（不送到 client）
+		slog.Error("request failed",
+			"path", c.Request.URL.Path,
+			"method", c.Request.Method,
+			"status", appErr.HTTPStatus,
+			"key", appErr.Key,
+			"err", err,
+		)
 
-			c.JSON(statusCode, models.ApiResponse{
-				Success: false,
-				Error:   err.Error(),
-				Message: message,
-			})
+		c.AbortWithStatusJSON(appErr.HTTPStatus, models.ApiResponse{
+			Success: false,
+			Error:   appErr.Key,
+		})
+	}
+}
+
+func mapError(err error) *AppError {
+	var ae *AppError
+	if errors.As(err, &ae) {
+		return ae
+	}
+
+	if st, ok := status.FromError(err); ok {
+		switch st.Code() {
+		case codes.NotFound:
+			return ErrNotFound
+		case codes.PermissionDenied, codes.Unauthenticated:
+			return ErrUnauthorized
+		case codes.InvalidArgument:
+			return ErrBadRequest
+		case codes.Unavailable, codes.DeadlineExceeded:
+			return ErrUpstreamFailed
 		}
 	}
-} 
+
+	return ErrInternal
+}

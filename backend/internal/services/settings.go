@@ -1,128 +1,155 @@
+// Package services 包裝 Firestore / Storage / Vertex AI 操作，
+// 處理 model ↔ Firestore document 的轉換與業務規則。
 package services
 
 import (
-	"errors"
-	"sync"
+	"context"
 	"time"
+
+	"cloud.google.com/go/firestore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"wattrent/internal/middleware"
 	"wattrent/internal/models"
 )
 
-// SettingsService 設定服務
+// SettingsService 操作 /users/{uid}/settings/current
 type SettingsService struct {
-	// 目前使用記憶體儲存，之後會改為 DynamoDB
-	store map[string]*models.UserSettings
-	mutex sync.RWMutex
+	fs *firestore.Client
 }
 
-// NewSettingsService 建立新的設定服務
-func NewSettingsService() *SettingsService {
-	return &SettingsService{
-		store: make(map[string]*models.UserSettings),
-		mutex: sync.RWMutex{},
-	}
+func NewSettingsService(fs *firestore.Client) *SettingsService {
+	return &SettingsService{fs: fs}
 }
 
-// GetSettings 取得用戶設定
-func (s *SettingsService) GetSettings(userID string) (*models.UserSettings, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+const settingsDocID = "current"
 
-	settings, exists := s.store[userID]
-	if !exists {
-		// 如果沒有設定，回傳預設設定
-		defaultSettings := &models.UserSettings{
-			UserID:                 userID,
-			DefaultElectricityRate: 4.5,
-			DefaultRent:            8000,
-			PreviousMeterReading:   0,
-			LandlordName:           "",
-			PaymentMethod:          "銀行轉帳",
-			UpdatedAt:              time.Now(),
+func (s *SettingsService) settingsRef(uid string) *firestore.DocumentRef {
+	return s.fs.Collection("users").Doc(uid).Collection("settings").Doc(settingsDocID)
+}
+
+// Get 取得使用者設定；不存在時回預設值（不寫入 DB）。
+func (s *SettingsService) Get(ctx context.Context, uid string) (*models.UserSettings, error) {
+	snap, err := s.settingsRef(uid).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			d := models.DefaultUserSettings()
+			d.UpdatedAt = time.Now().UTC()
+			return &d, nil
 		}
-		return defaultSettings, nil
+		return nil, err
 	}
 
-	return settings, nil
+	var settings models.UserSettings
+	if err := snap.DataTo(&settings); err != nil {
+		return nil, err
+	}
+	return &settings, nil
 }
 
-// SaveSettings 儲存用戶設定
-func (s *SettingsService) SaveSettings(settings *models.UserSettings) error {
-	if settings.UserID == "" {
-		return errors.New("用戶ID不能為空")
+// Save 整份覆寫設定。
+func (s *SettingsService) Save(ctx context.Context, uid string, settings *models.UserSettings) error {
+	if uid == "" {
+		return middleware.ErrUnauthorized
+	}
+	settings.UpdatedAt = time.Now().UTC()
+	_, err := s.settingsRef(uid).Set(ctx, settings)
+	return err
+}
+
+// Patch 局部更新；nil 欄位不動。
+func (s *SettingsService) Patch(ctx context.Context, uid string, req *models.UpdateSettingsRequest) (*models.UserSettings, error) {
+	updates := make([]firestore.Update, 0, 8)
+	if req.DefaultElectricityRate != nil {
+		updates = append(updates, firestore.Update{Path: "defaultElectricityRate", Value: *req.DefaultElectricityRate})
+	}
+	if req.DefaultRent != nil {
+		updates = append(updates, firestore.Update{Path: "defaultRent", Value: *req.DefaultRent})
+	}
+	if req.PreviousMeterReading != nil {
+		updates = append(updates, firestore.Update{Path: "previousMeterReading", Value: *req.PreviousMeterReading})
+	}
+	if req.LandlordName != nil {
+		updates = append(updates, firestore.Update{Path: "landlordName", Value: *req.LandlordName})
+	}
+	if req.PaymentMethod != nil {
+		updates = append(updates, firestore.Update{Path: "paymentMethod", Value: *req.PaymentMethod})
+	}
+	if req.Language != nil {
+		updates = append(updates, firestore.Update{Path: "language", Value: *req.Language})
+	}
+	if req.NotificationsEnabled != nil {
+		updates = append(updates, firestore.Update{Path: "notificationsEnabled", Value: *req.NotificationsEnabled})
+	}
+	if req.AutoBackup != nil {
+		updates = append(updates, firestore.Update{Path: "autoBackup", Value: *req.AutoBackup})
 	}
 
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+	if len(updates) == 0 {
+		return s.Get(ctx, uid)
+	}
 
-	// 更新時間戳
-	settings.UpdatedAt = time.Now()
+	updates = append(updates, firestore.Update{Path: "updatedAt", Value: firestore.ServerTimestamp})
 
-	// 儲存到記憶體
-	s.store[settings.UserID] = settings
-
-	return nil
-}
-
-// UpdateSettings 更新用戶設定
-func (s *SettingsService) UpdateSettings(userID string, updates map[string]interface{}) (*models.UserSettings, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// 取得現有設定或建立預設設定
-	settings, exists := s.store[userID]
-	if !exists {
-		settings = &models.UserSettings{
-			UserID:                 userID,
-			DefaultElectricityRate: 4.5,
-			DefaultRent:            8000,
-			PreviousMeterReading:   0,
-			LandlordName:           "",
-			PaymentMethod:          "銀行轉帳",
+	ref := s.settingsRef(uid)
+	if _, err := ref.Update(ctx, updates); err != nil {
+		// settings 文件不存在時自動建立
+		if status.Code(err) == codes.NotFound {
+			defaults := models.DefaultUserSettings()
+			s.applyPatchToStruct(&defaults, req)
+			if err := s.Save(ctx, uid, &defaults); err != nil {
+				return nil, err
+			}
+			return &defaults, nil
 		}
+		return nil, err
 	}
-
-	// 複製一份以避免直接修改
-	newSettings := *settings
-
-	// 應用更新
-	if rate, ok := updates["defaultElectricityRate"].(float64); ok {
-		newSettings.DefaultElectricityRate = rate
-	}
-	if rent, ok := updates["defaultRent"].(float64); ok {
-		newSettings.DefaultRent = rent
-	}
-	if reading, ok := updates["previousMeterReading"].(float64); ok {
-		newSettings.PreviousMeterReading = reading
-	}
-	if name, ok := updates["landlordName"].(string); ok {
-		newSettings.LandlordName = name
-	}
-	if method, ok := updates["paymentMethod"].(string); ok {
-		newSettings.PaymentMethod = method
-	}
-
-	// 更新時間戳
-	newSettings.UpdatedAt = time.Now()
-
-	// 儲存更新後的設定
-	s.store[userID] = &newSettings
-
-	return &newSettings, nil
+	return s.Get(ctx, uid)
 }
 
-// UpdatePreviousMeterReading 更新前次電表度數
-func (s *SettingsService) UpdatePreviousMeterReading(userID string, reading float64) (*models.UserSettings, error) {
-	updates := map[string]interface{}{
+func (s *SettingsService) applyPatchToStruct(dst *models.UserSettings, req *models.UpdateSettingsRequest) {
+	if req.DefaultElectricityRate != nil {
+		dst.DefaultElectricityRate = *req.DefaultElectricityRate
+	}
+	if req.DefaultRent != nil {
+		dst.DefaultRent = *req.DefaultRent
+	}
+	if req.PreviousMeterReading != nil {
+		dst.PreviousMeterReading = *req.PreviousMeterReading
+	}
+	if req.LandlordName != nil {
+		dst.LandlordName = *req.LandlordName
+	}
+	if req.PaymentMethod != nil {
+		dst.PaymentMethod = *req.PaymentMethod
+	}
+	if req.Language != nil {
+		dst.Language = *req.Language
+	}
+	if req.NotificationsEnabled != nil {
+		dst.NotificationsEnabled = *req.NotificationsEnabled
+	}
+	if req.AutoBackup != nil {
+		dst.AutoBackup = *req.AutoBackup
+	}
+}
+
+// SetPreviousMeterReading 帳單建立後同步更新 settings 內的「上次度數」。
+// 通常與建立 bill 包成 transaction。
+func (s *SettingsService) SetPreviousMeterReading(ctx context.Context, uid string, reading float64) error {
+	_, err := s.settingsRef(uid).Set(ctx, map[string]interface{}{
 		"previousMeterReading": reading,
-	}
-	return s.UpdateSettings(userID, updates)
+		"updatedAt":            firestore.ServerTimestamp,
+	}, firestore.MergeAll)
+	return err
 }
 
-// DeleteSettings 刪除用戶設定
-func (s *SettingsService) DeleteSettings(userID string) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	delete(s.store, userID)
+// Delete 刪除設定（重置為預設值）。
+func (s *SettingsService) Delete(ctx context.Context, uid string) error {
+	_, err := s.settingsRef(uid).Delete(ctx)
+	if err != nil && status.Code(err) != codes.NotFound {
+		return err
+	}
 	return nil
 }

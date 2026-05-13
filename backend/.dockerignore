@@ -1,0 +1,20 @@
+# 排除 build 不需要的檔案
+.git
+.github
+.gitignore
+.dockerignore
+*.md
+README*
+
+tmp/
+build/
+dist/
+coverage*
+
+.air.toml
+.vscode
+.idea
+
+# 不要把開發用的 stub 進到 image
+ImageAnalysisQuickstart.go
+main.oldgo

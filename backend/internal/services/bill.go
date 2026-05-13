@@ -1,137 +1,225 @@
 package services
 
 import (
-	"errors"
-	"sort"
-	"sync"
+	"context"
+	"fmt"
+	"time"
+
+	"cloud.google.com/go/firestore"
+	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"wattrent/internal/middleware"
 	"wattrent/internal/models"
 )
 
+// BillService 操作 /users/{uid}/bills/{billId}
 type BillService struct {
-	// 暫時使用記憶體儲存，之後替換為 DynamoDB
-	bills         map[string]*models.Bill
-	meterReadings map[string]*models.MeterReading
-	mu            sync.RWMutex
+	fs       *firestore.Client
+	settings *SettingsService
 }
 
-func NewBillService() *BillService {
-	return &BillService{
-		bills:         make(map[string]*models.Bill),
-		meterReadings: make(map[string]*models.MeterReading),
-	}
+func NewBillService(fs *firestore.Client, settings *SettingsService) *BillService {
+	return &BillService{fs: fs, settings: settings}
 }
 
-// SaveBill 儲存帳單
-func (s *BillService) SaveBill(bill *models.Bill) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.bills[bill.ID] = bill
-	return nil
+func (s *BillService) billsCol(uid string) *firestore.CollectionRef {
+	return s.fs.Collection("users").Doc(uid).Collection("bills")
 }
 
-// GetBillByID 根據 ID 獲取帳單
-func (s *BillService) GetBillByID(billID string) (*models.Bill, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	bill, exists := s.bills[billID]
-	if !exists {
-		return nil, errors.New("帳單不存在")
-	}
-
-	return bill, nil
-}
-
-// GetBillsByUserID 獲取用戶的所有帳單
-func (s *BillService) GetBillsByUserID(userID string) ([]*models.Bill, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	var userBills []*models.Bill
-	for _, bill := range s.bills {
-		if bill.UserID == userID {
-			userBills = append(userBills, bill)
+// Create 建立帳單。
+//
+// 在同一個 transaction 中：
+//  1. 寫入新 bill
+//  2. 把 settings.previousMeterReading 更新為這次的讀數
+//
+// 注意：previousReading 取自當前 settings；若這是第一筆 bill，previousReading=0。
+func (s *BillService) Create(ctx context.Context, uid string, req *models.CreateBillRequest) (*models.Bill, error) {
+	periodStart, err := parsePeriod(req.Period)
+	if err != nil {
+		return nil, &middleware.AppError{
+			HTTPStatus: 400,
+			Key:        "errors.bill.invalid_period",
+			Cause:      err,
 		}
 	}
 
-	// 按建立時間排序（新的在前）
-	sort.Slice(userBills, func(i, j int) bool {
-		return userBills[i].CreatedAt.After(userBills[j].CreatedAt)
+	settingsRef := s.fs.Collection("users").Doc(uid).Collection("settings").Doc(settingsDocID)
+	billRef := s.billsCol(uid).NewDoc()
+
+	var created models.Bill
+
+	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		// 1. 取上次讀數（從 settings 拿；若無則 0）
+		var prevReading float64
+		if snap, err := tx.Get(settingsRef); err == nil {
+			if v, err := snap.DataAt("previousMeterReading"); err == nil {
+				if f, ok := v.(float64); ok {
+					prevReading = f
+				}
+			}
+		} else if status.Code(err) != codes.NotFound {
+			return err
+		}
+
+		if req.MeterReading < prevReading {
+			return &middleware.AppError{
+				HTTPStatus: 400,
+				Key:        "errors.bill.reading_decreased",
+			}
+		}
+
+		usage := req.MeterReading - prevReading
+		electricityCost := usage * req.ElectricityRate
+		now := time.Now().UTC()
+
+		bill := models.Bill{
+			Period:           req.Period,
+			PeriodStart:      periodStart,
+			MeterReading:     req.MeterReading,
+			PreviousReading:  prevReading,
+			ElectricityUsage: usage,
+			ElectricityRate:  req.ElectricityRate,
+			ElectricityCost:  electricityCost,
+			Rent:             req.Rent,
+			TotalAmount:      electricityCost + req.Rent,
+			ImageURL:         req.ImageURL,
+			CreatedAt:        now,
+			UpdatedAt:        now,
+		}
+
+		if err := tx.Set(billRef, bill); err != nil {
+			return err
+		}
+
+		// 2. 更新 settings.previousMeterReading
+		if err := tx.Set(settingsRef, map[string]interface{}{
+			"previousMeterReading": req.MeterReading,
+			"updatedAt":            firestore.ServerTimestamp,
+		}, firestore.MergeAll); err != nil {
+			return err
+		}
+
+		bill.ID = billRef.ID
+		created = bill
+		return nil
 	})
-
-	return userBills, nil
-}
-
-// UpdateBill 更新帳單
-func (s *BillService) UpdateBill(bill *models.Bill) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if _, exists := s.bills[bill.ID]; !exists {
-		return errors.New("帳單不存在")
-	}
-
-	s.bills[bill.ID] = bill
-	return nil
-}
-
-// GetLatestBill 獲取最新帳單
-func (s *BillService) GetLatestBill(userID string) (*models.Bill, error) {
-	bills, err := s.GetBillsByUserID(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(bills) == 0 {
-		return nil, errors.New("無帳單記錄")
+	return &created, nil
+}
+
+// Get 取得單一 bill。
+func (s *BillService) Get(ctx context.Context, uid, billID string) (*models.Bill, error) {
+	snap, err := s.billsCol(uid).Doc(billID).Get(ctx)
+	if err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, &middleware.AppError{
+				HTTPStatus: 404,
+				Key:        "errors.bill.not_found",
+			}
+		}
+		return nil, err
+	}
+	return docToBill(snap)
+}
+
+// List 列出使用者所有 bills（新→舊）。
+func (s *BillService) List(ctx context.Context, uid string, limit int) ([]*models.Bill, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
 	}
 
+	q := s.billsCol(uid).OrderBy("createdAt", firestore.Desc).Limit(limit)
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+
+	bills := make([]*models.Bill, 0, limit)
+	for {
+		snap, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		b, err := docToBill(snap)
+		if err != nil {
+			return nil, err
+		}
+		bills = append(bills, b)
+	}
+	return bills, nil
+}
+
+// Latest 取最新一筆 bill。
+func (s *BillService) Latest(ctx context.Context, uid string) (*models.Bill, error) {
+	bills, err := s.List(ctx, uid, 1)
+	if err != nil {
+		return nil, err
+	}
+	if len(bills) == 0 {
+		return nil, nil
+	}
 	return bills[0], nil
 }
 
-// SaveMeterReading 儲存電表讀數
-func (s *BillService) SaveMeterReading(reading *models.MeterReading) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// SetPaid 標記付款狀態。paid=true → paidAt=now；paid=false → paidAt=nil。
+func (s *BillService) SetPaid(ctx context.Context, uid, billID string, paid bool) (*models.Bill, error) {
+	updates := []firestore.Update{
+		{Path: "updatedAt", Value: firestore.ServerTimestamp},
+	}
+	if paid {
+		updates = append(updates, firestore.Update{Path: "paidAt", Value: firestore.ServerTimestamp})
+	} else {
+		updates = append(updates, firestore.Update{Path: "paidAt", Value: nil})
+	}
 
-	s.meterReadings[reading.ID] = reading
-	return nil
+	if _, err := s.billsCol(uid).Doc(billID).Update(ctx, updates); err != nil {
+		if status.Code(err) == codes.NotFound {
+			return nil, &middleware.AppError{HTTPStatus: 404, Key: "errors.bill.not_found"}
+		}
+		return nil, err
+	}
+	return s.Get(ctx, uid, billID)
 }
 
-// GetLastMeterReading 獲取最後一次電表讀數
-func (s *BillService) GetLastMeterReading(userID string) (*models.MeterReading, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	var userReadings []*models.MeterReading
-	for _, reading := range s.meterReadings {
-		if reading.UserID == userID {
-			userReadings = append(userReadings, reading)
+// Delete 刪除 bill；已付款的 bill 不允許刪。
+func (s *BillService) Delete(ctx context.Context, uid, billID string) error {
+	bill, err := s.Get(ctx, uid, billID)
+	if err != nil {
+		return err
+	}
+	if bill.PaidAt != nil {
+		return &middleware.AppError{
+			HTTPStatus: 409,
+			Key:        "errors.bill.cannot_delete_paid",
 		}
 	}
-
-	if len(userReadings) == 0 {
-		return nil, errors.New("無讀數記錄")
-	}
-
-	// 按建立時間排序（新的在前）
-	sort.Slice(userReadings, func(i, j int) bool {
-		return userReadings[i].CreatedAt.After(userReadings[j].CreatedAt)
-	})
-
-	return userReadings[0], nil
+	_, err = s.billsCol(uid).Doc(billID).Delete(ctx)
+	return err
 }
 
-// DeleteBill 刪除帳單
-func (s *BillService) DeleteBill(billID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// ─────────────────────── helpers ───────────────────────
 
-	if _, exists := s.bills[billID]; !exists {
-		return errors.New("帳單不存在")
+// parsePeriod "YYYY-MM" → time.Time（該月第一天 00:00 Asia/Taipei）。
+func parsePeriod(period string) (time.Time, error) {
+	loc, _ := time.LoadLocation("Asia/Taipei")
+	t, err := time.ParseInLocation("2006-01", period, loc)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid period %q (expected YYYY-MM): %w", period, err)
 	}
+	return t, nil
+}
 
-	delete(s.bills, billID)
-	return nil
+func docToBill(snap *firestore.DocumentSnapshot) (*models.Bill, error) {
+	var bill models.Bill
+	if err := snap.DataTo(&bill); err != nil {
+		return nil, err
+	}
+	bill.ID = snap.Ref.ID
+	return &bill, nil
 }
