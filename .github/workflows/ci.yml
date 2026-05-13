@@ -32,7 +32,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25" # 取 1.25 系列最新 patch（含 stdlib CVE 修補）
+          go-version: "1.25"
+          check-latest: true # 取 1.25 系列最新 patch，不受 cache 鎖住
           cache-dependency-path: backend/go.sum
 
       - name: Verify modules

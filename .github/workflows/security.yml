@@ -56,7 +56,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25" # 取最新 patch；govulncheck 才能看到實際 stdlib 修補狀態
+          go-version: "1.25"
+          check-latest: true # 取最新 patch（stdlib CVE 修補）不要用 cache 舊版
           cache-dependency-path: backend/go.sum
 
       - name: Install govulncheck

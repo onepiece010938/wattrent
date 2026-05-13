@@ -221,14 +221,12 @@ resource "google_cloud_run_v2_service" "api" {
     percent = 100
   }
 
-  # CI/CD 會頻繁更新 image tag，避免 TF 把它 revert
+  # CI/CD 會頻繁更新 image tag，避免 TF 把它 revert。
+  # env 是交給 TF 管的（包含新增的 GEMINI_API_KEY/AI_BACKEND/GEMINI_MODEL），
+  # 不要 ignore，否則 Cloud Run 不會拉新 env。
   lifecycle {
     ignore_changes = [
       template[0].containers[0].image,
-      # Cloud Run 內部會把 env 順序正規化（特別是 dynamic + secret_key_ref 同時出現時），
-      # 為了避免 TF 永遠偵測 drift → 觸發新 revision 的迴圈，env 列表交給人工管理。
-      # 要新增/修改 env var 時，先在 TF code 改完，再到 console 手動加上去（或臨時拿掉這行）。
-      template[0].containers[0].env,
       client,
       client_version,
     ]

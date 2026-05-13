@@ -55,6 +55,11 @@ type ocrModelOutput struct {
 //   - ImageURL：支援 gs:// 路徑（會透過 Storage 下載）
 //   - ImageBase64：適合前端剛拍照、還沒上傳的場景
 func (s *OCRService) Process(ctx context.Context, req *models.OCRRequest) (*models.OCRResponse, error) {
+	// fail-late：如果底層 client 沒被初始化（例：staging 還沒填 GEMINI_API_KEY）就回 503。
+	if s.client == nil {
+		return nil, &middleware.AppError{HTTPStatus: 503, Key: "errors.ocr.not_configured"}
+	}
+
 	var (
 		imgData []byte
 		imgMIME string

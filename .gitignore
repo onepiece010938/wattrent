@@ -45,6 +45,13 @@ credentials.tfrc.json
 .terraformrc
 terraform.rc
 
+# Local notes containing secrets / API keys / PATs (never commit)
+TOKEN.txt
+TOKENS.txt
+secrets.txt
+*.secret
+.commit-msg.tmp
+
 # === Terraform local artefacts（terraform/.gitignore 也有） ===
 **/.terraform/
 *.tfstate

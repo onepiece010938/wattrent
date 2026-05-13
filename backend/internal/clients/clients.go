@@ -6,8 +6,8 @@
 //   - GCP 認證走 Application Default Credentials（local: gcloud auth；
 //     Cloud Run: 自動帶 service account；CI: WIF）
 //   - Gemini 認證依 AI_BACKEND 切：
-//     - "gemini"（預設）走 Google AI Studio API key（免費 tier）
-//     - "vertex" 走 Vertex AI 共用上面的 ADC
+//   - "gemini"（預設）走 Google AI Studio API key（免費 tier）
+//   - "vertex" 走 Vertex AI 共用上面的 ADC
 package clients
 
 import (
@@ -63,38 +63,51 @@ func New(ctx context.Context, cfg *config.Config) (*Clients, error) {
 	}
 
 	// ─────── Gemini（AI Studio 或 Vertex AI） ───────
-	geminiCfg, err := buildGeminiConfig(cfg)
+	// 設計：fail-late。缺 key 只讓 OCR endpoint 回 503，不讓整個 backend 起不來
+	//（health check そう Sentry で alerts、生成迫使紬を邊不差りたい）。
+	// production+gemini 則 config.Load() 已在更上層 fail-fast。
+	geminiCfg, skip, err := buildGeminiConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	c.Gemini, err = genai.NewClient(ctx, geminiCfg)
-	if err != nil {
-		return nil, fmt.Errorf("init gemini (%s backend): %w", cfg.AIBackend, err)
+	if skip {
+		slog.Warn("gemini client not initialized: missing API key (OCR endpoints will fail until GEMINI_API_KEY is set)",
+			"aiBackend", cfg.AIBackend, "env", cfg.Env)
+	} else {
+		c.Gemini, err = genai.NewClient(ctx, geminiCfg)
+		if err != nil {
+			return nil, fmt.Errorf("init gemini (%s backend): %w", cfg.AIBackend, err)
+		}
 	}
 
-	slog.Info("all clients initialized", "aiBackend", cfg.AIBackend)
+	slog.Info("all clients initialized", "aiBackend", cfg.AIBackend, "geminiReady", c.Gemini != nil)
 	return c, nil
 }
 
 // buildGeminiConfig 依設定選 Gemini Developer API（免費 tier）或 Vertex AI（要錢）。
-func buildGeminiConfig(cfg *config.Config) (*genai.ClientConfig, error) {
+//
+// 回備註：skip=true 表示必要設定不齊 → 該跳過初始化，讓 backend 還能起來。
+func buildGeminiConfig(cfg *config.Config) (cc *genai.ClientConfig, skip bool, err error) {
 	switch cfg.AIBackend {
 	case "gemini":
-		if cfg.GeminiAPIKey == "" && !cfg.AuthBypass {
-			return nil, fmt.Errorf("AI_BACKEND=gemini 需要 GEMINI_API_KEY（請到 https://aistudio.google.com/apikey 取得）")
+		if cfg.GeminiAPIKey == "" {
+			// production 的 fail-fast 已在 config.Load 處理完。
+			// 其他现墔（staging / dev / preview）、適互偷懶、允許 backend 出來，
+			// OCR endpoint 才会帶顼 503。
+			return nil, true, nil
 		}
 		return &genai.ClientConfig{
 			APIKey:  cfg.GeminiAPIKey,
 			Backend: genai.BackendGeminiAPI,
-		}, nil
+		}, false, nil
 	case "vertex":
 		return &genai.ClientConfig{
 			Project:  cfg.GCPProjectID,
 			Location: cfg.GCPRegion,
 			Backend:  genai.BackendVertexAI,
-		}, nil
+		}, false, nil
 	default:
-		return nil, fmt.Errorf("unknown AI_BACKEND: %s", cfg.AIBackend)
+		return nil, false, fmt.Errorf("unknown AI_BACKEND: %s", cfg.AIBackend)
 	}
 }
 
