@@ -2,11 +2,21 @@ export default {
   expo: {
     name: "WattRent",
     slug: "wattrent",
+    owner: "onepiece010938",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     scheme: "wattrent",
+    // EAS Update 用：跟 native binary 綁定的版本，policy:"appVersion"
+    // 表示 runtimeVersion 自動跟 expo.version 對齊；改 native 模組或升 SDK 時
+    // 一定要 bump expo.version，否則 OTA 推下去舊 binary 會 crash。
+    runtimeVersion: {
+      policy: "appVersion"
+    },
+    updates: {
+      url: "https://u.expo.dev/dc9a5284-10b5-47da-bc1c-053c36d08564"
+    },
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
@@ -66,7 +76,10 @@ export default {
       // API URL 不再寫死。請需要時設環境變數：
       //   $env:EXPO_PUBLIC_API_URL='https://wattrent-api-xxxx.a.run.app/api/v1'
       // 沒設的話 lib/apiUrl.ts 會自動選 dev/staging fallback。
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || null
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || null,
+      eas: {
+        projectId: "dc9a5284-10b5-47da-bc1c-053c36d08564"
+      }
     }
   }
 };
