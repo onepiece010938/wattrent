@@ -1,4 +1,4 @@
-// Package services 包裝 Firestore / Storage / Vertex AI 操作，
+// Package services 包裝 Firestore / Storage / Gemini OCR 操作，
 // 處理 model ↔ Firestore document 的轉換與業務規則。
 package services
 

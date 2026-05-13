@@ -1,7 +1,7 @@
 # WattRent Terraform / OpenTofu 結構
 
 > 對應 [docs/系統分析與意見回饋.md](../docs/系統分析與意見回饋.md) 與 [docs/firestore-schema.md](../docs/firestore-schema.md)。
-> 管理 GCP（Cloud Run、Firestore、GCS、Vertex AI、Identity Platform、Budget kill-switch）+ Cloudflare DNS + Sentry。
+> 管理 GCP（Cloud Run、Firestore、GCS、Vertex AI 選配、Identity Platform、Budget kill-switch）+ Cloudflare DNS + Sentry + Gemini API key Secret。
 
 ---
 
@@ -262,7 +262,7 @@ Cloud Function (Gen2): billing-killer
 Project billing → DISABLED
    │
    ▼
-Cloud Run 503 / Firestore writes 失敗 / Vertex AI 拒絕
+Cloud Run 503 / Firestore writes 失敗 / Gemini OCR 拒絕
 （讀取自己的 metadata、Cloud Logging 仍可運作）
 ```
 

@@ -1,10 +1,13 @@
-// Package clients 集中管理對外的 GCP / Firebase 連線。
+// Package clients 集中管理對外的 GCP / Firebase / Gemini 連線。
 //
 // 設計原則：
 //   - 在 main.go 啟動時 Init 一次，傳給 services
 //   - 所有 client 都要 graceful close
-//   - 認證一律走 Application Default Credentials（local: gcloud auth；
+//   - GCP 認證走 Application Default Credentials（local: gcloud auth；
 //     Cloud Run: 自動帶 service account；CI: WIF）
+//   - Gemini 認證依 AI_BACKEND 切：
+//     - "gemini"（預設）走 Google AI Studio API key（免費 tier）
+//     - "vertex" 走 Vertex AI 共用上面的 ADC
 package clients
 
 import (
@@ -14,9 +17,9 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
-	"cloud.google.com/go/vertexai/genai"
 	firebase "firebase.google.com/go/v4"
 	firebaseauth "firebase.google.com/go/v4/auth"
+	"google.golang.org/genai"
 
 	"wattrent/internal/config"
 )
@@ -26,7 +29,7 @@ type Clients struct {
 	Firestore *firestore.Client
 	Storage   *storage.Client
 	Auth      *firebaseauth.Client
-	Vertex    *genai.Client
+	Gemini    *genai.Client
 }
 
 // New 建立並初始化所有 client。
@@ -59,18 +62,45 @@ func New(ctx context.Context, cfg *config.Config) (*Clients, error) {
 		return nil, fmt.Errorf("init storage: %w", err)
 	}
 
-	// ─────── Vertex AI ───────
-	c.Vertex, err = genai.NewClient(ctx, cfg.GCPProjectID, cfg.GCPRegion)
+	// ─────── Gemini（AI Studio 或 Vertex AI） ───────
+	geminiCfg, err := buildGeminiConfig(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("init vertex ai: %w", err)
+		return nil, err
+	}
+	c.Gemini, err = genai.NewClient(ctx, geminiCfg)
+	if err != nil {
+		return nil, fmt.Errorf("init gemini (%s backend): %w", cfg.AIBackend, err)
 	}
 
-	slog.Info("all clients initialized")
+	slog.Info("all clients initialized", "aiBackend", cfg.AIBackend)
 	return c, nil
+}
+
+// buildGeminiConfig 依設定選 Gemini Developer API（免費 tier）或 Vertex AI（要錢）。
+func buildGeminiConfig(cfg *config.Config) (*genai.ClientConfig, error) {
+	switch cfg.AIBackend {
+	case "gemini":
+		if cfg.GeminiAPIKey == "" && !cfg.AuthBypass {
+			return nil, fmt.Errorf("AI_BACKEND=gemini 需要 GEMINI_API_KEY（請到 https://aistudio.google.com/apikey 取得）")
+		}
+		return &genai.ClientConfig{
+			APIKey:  cfg.GeminiAPIKey,
+			Backend: genai.BackendGeminiAPI,
+		}, nil
+	case "vertex":
+		return &genai.ClientConfig{
+			Project:  cfg.GCPProjectID,
+			Location: cfg.GCPRegion,
+			Backend:  genai.BackendVertexAI,
+		}, nil
+	default:
+		return nil, fmt.Errorf("unknown AI_BACKEND: %s", cfg.AIBackend)
+	}
 }
 
 // Close 關閉所有 client。
 // 即使其中一個失敗也會繼續關其他的，最後回第一個遇到的 error。
+// 注： google.golang.org/genai 的 Client 不需要 Close（只是 HTTP client 包裝）。
 func (c *Clients) Close() error {
 	var firstErr error
 	if c.Firestore != nil {
@@ -81,11 +111,6 @@ func (c *Clients) Close() error {
 	if c.Storage != nil {
 		if err := c.Storage.Close(); err != nil && firstErr == nil {
 			firstErr = fmt.Errorf("close storage: %w", err)
-		}
-	}
-	if c.Vertex != nil {
-		if err := c.Vertex.Close(); err != nil && firstErr == nil {
-			firstErr = fmt.Errorf("close vertex: %w", err)
 		}
 	}
 	return firstErr

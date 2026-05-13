@@ -15,10 +15,10 @@ type Config struct {
 	// Env：staging / production / dev / preview-{n}
 	Env string
 
-	// GCPProjectID：Firebase / Firestore / Vertex AI / GCS 都用同一個
+	// GCPProjectID：Firebase / Firestore / GCS（以及 Vertex AI 後端時）共用
 	GCPProjectID string
 
-	// GCPRegion：Vertex AI publisher endpoint 用，例：asia-east1
+	// GCPRegion：Firestore / GCS / Vertex AI publisher endpoint，例：asia-east1
 	GCPRegion string
 
 	// MetersBucket：電表照片 GCS bucket
@@ -36,8 +36,15 @@ type Config struct {
 	// AuthBypassUID：AuthBypass=true 時用的假 uid
 	AuthBypassUID string
 
-	// VertexModel：要用的 Gemini 模型名，例：gemini-2.5-flash-lite
-	VertexModel string
+	// AIBackend："gemini"（預設，走 Google AI Studio 免費 tier）或 "vertex"
+	//（走 GCP Vertex AI，要錢、走 IAM；高用量 / 不想被拿去訓練資料時切過去）
+	AIBackend string
+
+	// GeminiAPIKey：AIBackend="gemini" 時必填；從 https://aistudio.google.com/apikey 拿
+	GeminiAPIKey string
+
+	// GeminiModel：要用的 Gemini 模型名，例：gemini-2.5-flash-lite
+	GeminiModel string
 
 	// SentryDSN：可選；空字串代表不接 Sentry
 	SentryDSN string
@@ -55,8 +62,15 @@ func Load() (*Config, error) {
 		AllowedOrigins: splitAndTrim(envOr("ALLOWED_ORIGINS", "*")),
 		AuthBypass:     envOr("AUTH_BYPASS", "false") == "true",
 		AuthBypassUID:  envOr("AUTH_BYPASS_UID", "dev-user"),
-		VertexModel:    envOr("VERTEX_MODEL", "gemini-2.5-flash-lite"),
+		AIBackend:      strings.ToLower(envOr("AI_BACKEND", "gemini")),
+		GeminiAPIKey:   firstNonEmpty(os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY")),
+		GeminiModel:    firstNonEmpty(os.Getenv("GEMINI_MODEL"), os.Getenv("VERTEX_MODEL"), "gemini-2.5-flash-lite"),
 		SentryDSN:      os.Getenv("SENTRY_DSN"),
+	}
+
+	// AI backend 必須是 gemini 或 vertex
+	if cfg.AIBackend != "gemini" && cfg.AIBackend != "vertex" {
+		return nil, fmt.Errorf("AI_BACKEND 必須是 gemini 或 vertex，得到：%s", cfg.AIBackend)
 	}
 
 	// production 環境的硬性檢查
@@ -66,6 +80,9 @@ func Load() (*Config, error) {
 		}
 		if contains(cfg.AllowedOrigins, "*") {
 			return nil, fmt.Errorf("ALLOWED_ORIGINS=* 不允許在 production 啟用")
+		}
+		if cfg.AIBackend == "gemini" && cfg.GeminiAPIKey == "" {
+			return nil, fmt.Errorf("AI_BACKEND=gemini 需要 GEMINI_API_KEY（請從 Google AI Studio 申請）")
 		}
 	}
 
@@ -80,8 +97,19 @@ func Load() (*Config, error) {
 		"region", cfg.GCPRegion,
 		"port", cfg.Port,
 		"authBypass", cfg.AuthBypass,
+		"aiBackend", cfg.AIBackend,
+		"geminiModel", cfg.GeminiModel,
 	)
 	return cfg, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func envOr(key, def string) string {

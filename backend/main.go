@@ -2,7 +2,7 @@
 //
 // 啟動順序：
 //  1. config.Load 讀環境變數
-//  2. clients.New 建 Firestore / Storage / Vertex AI / Firebase Auth
+//  2. clients.New 建 Firestore / Storage / Gemini（AI Studio 或 Vertex） / Firebase Auth
 //  3. services 注入 client
 //  4. handlers 注入 service
 //  5. router + middleware
@@ -58,7 +58,7 @@ func main() {
 	settingsSvc := services.NewSettingsService(cls.Firestore)
 	billSvc := services.NewBillService(cls.Firestore, settingsSvc)
 	storageSvc := services.NewStorageService(cls.Storage, cfg.MetersBucket)
-	ocrSvc := services.NewOCRService(cls.Vertex, cfg.VertexModel)
+	ocrSvc := services.NewOCRService(cls.Gemini, storageSvc, cfg.GeminiModel)
 
 	router := buildRouter(cfg, cls, settingsSvc, billSvc, storageSvc, ocrSvc)
 

@@ -7,25 +7,29 @@ import (
 	"fmt"
 	"strings"
 
-	"cloud.google.com/go/vertexai/genai"
+	"google.golang.org/genai"
 
 	"wattrent/internal/middleware"
 	"wattrent/internal/models"
 )
 
-// OCRService 用 Vertex AI Gemini 讀電表度數。
+// OCRService 用 Gemini（AI Studio 或 Vertex AI）讀電表度數。
 //
 // 為什麼選 Gemini Flash-Lite 而不是傳統 OCR：
 //   - 電表的「滾輪在兩個數字之間」場景靠 prompt 指令處理，傳統 OCR 不行
 //   - 多種電表型號 / 拍攝角度 / 反光，Gemini 的視覺理解能力優於 cloud OCR
-//   - $0.0002 / image，比 Azure Vision Read（$0.0015）便宜
+//   - AI Studio 免費 tier 對 Flash-Lite 有 1500 次/日 額度，個人專案綜綽有餘
+//
+// 圖片來源處理：不論後端是 Gemini API 還是 Vertex，一律把圖片以 inline bytes 送
+// 出去。這來是因為 Gemini Developer API 不能讀 gs://，二來也讓兩個後端路徑一致。
 type OCRService struct {
-	client *genai.Client
-	model  string
+	client  *genai.Client
+	storage *StorageService
+	model   string
 }
 
-func NewOCRService(client *genai.Client, model string) *OCRService {
-	return &OCRService{client: client, model: model}
+func NewOCRService(client *genai.Client, storage *StorageService, model string) *OCRService {
+	return &OCRService{client: client, storage: storage, model: model}
 }
 
 const ocrPrompt = `你是電表判讀專家。請看這張電子或機械式電表照片，回傳目前的累計度數（kWh）。
@@ -48,52 +52,59 @@ type ocrModelOutput struct {
 // Process 解析圖片，回傳 OCRResponse。
 //
 // req.ImageBase64 與 req.ImageURL 擇一：
-//   - ImageURL：支援 gs:// 路徑（Vertex AI 直接讀）
+//   - ImageURL：支援 gs:// 路徑（會透過 Storage 下載）
 //   - ImageBase64：適合前端剛拍照、還沒上傳的場景
 func (s *OCRService) Process(ctx context.Context, req *models.OCRRequest) (*models.OCRResponse, error) {
-	model := s.client.GenerativeModel(s.model)
-
-	// 強制 JSON 輸出
-	model.GenerationConfig.ResponseMIMEType = "application/json"
-	temp := float32(0.0) // 度數判讀要 deterministic
-	model.GenerationConfig.Temperature = &temp
-
-	parts := []genai.Part{genai.Text(ocrPrompt)}
+	var (
+		imgData []byte
+		imgMIME string
+	)
 
 	switch {
 	case req.ImageURL != "":
-		mime, err := guessMimeFromURL(req.ImageURL)
-		if err != nil {
-			return nil, &middleware.AppError{HTTPStatus: 400, Key: "errors.ocr.invalid_image_url", Cause: err}
+		if !strings.HasPrefix(req.ImageURL, "gs://") {
+			return nil, &middleware.AppError{HTTPStatus: 400, Key: "errors.ocr.invalid_image_url"}
 		}
-		parts = append(parts, genai.FileData{
-			MIMEType: mime,
-			FileURI:  req.ImageURL,
-		})
+		data, ct, err := s.storage.DownloadObject(ctx, req.ImageURL)
+		if err != nil {
+			return nil, &middleware.AppError{HTTPStatus: 502, Key: "errors.ocr.download_failed", Cause: err}
+		}
+		if ct == "application/octet-stream" {
+			// GCS 沒記錄 ContentType 就 fallback 用 URL 副檔名猜
+			if guessed, gerr := guessMimeFromURL(req.ImageURL); gerr == nil {
+				ct = guessed
+			}
+		}
+		imgData, imgMIME = data, ct
 	case req.ImageBase64 != "":
 		data, mime, err := decodeBase64Image(req.ImageBase64)
 		if err != nil {
 			return nil, &middleware.AppError{HTTPStatus: 400, Key: "errors.ocr.invalid_image", Cause: err}
 		}
-		parts = append(parts, genai.Blob{MIMEType: mime, Data: data})
+		imgData, imgMIME = data, mime
 	default:
 		return nil, &middleware.AppError{HTTPStatus: 400, Key: "errors.ocr.image_required"}
 	}
 
-	resp, err := model.GenerateContent(ctx, parts...)
+	contents := []*genai.Content{{
+		Role: "user",
+		Parts: []*genai.Part{
+			{Text: ocrPrompt},
+			{InlineData: &genai.Blob{MIMEType: imgMIME, Data: imgData}},
+		},
+	}}
+
+	resp, err := s.client.Models.GenerateContent(ctx, s.model, contents, &genai.GenerateContentConfig{
+		ResponseMIMEType: "application/json",
+		Temperature:      genai.Ptr(float32(0.0)), // 度數判讀要 deterministic
+	})
 	if err != nil {
 		return nil, &middleware.AppError{HTTPStatus: 502, Key: "errors.ocr.upstream_failed", Cause: err}
 	}
 
-	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+	rawText := resp.Text()
+	if rawText == "" {
 		return nil, &middleware.AppError{HTTPStatus: 502, Key: "errors.ocr.no_response"}
-	}
-
-	rawText := ""
-	for _, p := range resp.Candidates[0].Content.Parts {
-		if t, ok := p.(genai.Text); ok {
-			rawText += string(t)
-		}
 	}
 
 	var parsed ocrModelOutput

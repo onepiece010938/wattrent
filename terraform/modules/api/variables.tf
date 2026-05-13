@@ -64,6 +64,18 @@ variable "sentry_dsn_secret" {
   default     = ""
 }
 
+variable "ai_backend" {
+  description = "AI 後端：gemini（AI Studio API key）或 vertex（Vertex AI，走 IAM）"
+  type        = string
+  default     = "gemini"
+}
+
+variable "gemini_model" {
+  description = "Gemini 模型名"
+  type        = string
+  default     = "gemini-2.5-flash-lite"
+}
+
 variable "labels" {
   description = "資源 labels"
   type        = map(string)

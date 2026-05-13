@@ -11,17 +11,18 @@ description: "WattRent 前端（Expo / React Native + NativeWind + Firebase Auth
 
 | 項目 | 版本 / 套件 |
 | --- | --- |
-| 框架 | **Expo SDK 53** + React Native 0.79 + React 19 |
-| 路由 | `expo-router` 5.x（檔案式 + Typed Routes） |
+| 框架 | **Expo SDK 55** + React Native 0.83 + React 19.2 |
+| 路由 | `expo-router` 5.x（SDK55 channel；檔案式 + Typed Routes） |
 | 樣式 | `nativewind` 4 + `tailwindcss` 3.4，主題色用 CSS 變數 |
+| 動畫 | `react-native-reanimated` 4 + `react-native-worklets`（SDK55 拆包） |
 | 多語系 | `i18next` 25 + `react-i18next` + `expo-localization` |
-| 影像 | `expo-camera` 16、`expo-image-picker` 16 |
-| 本地儲存 | `@react-native-async-storage/async-storage` |
-| 圖示 | `@expo/vector-icons`（**只用 Ionicons**） |
+| 影像 | `expo-camera` ~55、`expo-image-picker` ~55 |
+| 本地儲存 | `@react-native-async-storage/async-storage` 2.2 |
+| 圖示 | `@expo/vector-icons` 15（**只用 Ionicons**） |
 | Auth | Firebase Auth Web SDK（搭配後端 ID token 驗證） |
-| OTA | EAS Update |
+| OTA | EAS Update（`expo-updates` ~55） |
 | Build | EAS Build |
-| Lint | `expo lint` |
+| Lint | `expo lint`（`eslint-config-expo` ~55） |
 | TS Path | `@/*` 與 `~/*` 都對應 `frontend/wattrent/*` |
 
 ## 目錄

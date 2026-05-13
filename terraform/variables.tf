@@ -41,6 +41,24 @@ variable "gcp_storage_location" {
   default     = "ASIA-EAST1"
 }
 
+# ─────────────── AI / OCR ───────────────
+
+variable "ai_backend" {
+  description = "OCR 走哪個 backend：gemini（預設、Google AI Studio 免費 tier）或 vertex（Vertex AI，要錢、走 IAM）"
+  type        = string
+  default     = "gemini"
+  validation {
+    condition     = contains(["gemini", "vertex"], var.ai_backend)
+    error_message = "ai_backend 必須是 gemini 或 vertex"
+  }
+}
+
+variable "gemini_model" {
+  description = "Gemini 模型名稱（兩個 backend 共用）"
+  type        = string
+  default     = "gemini-2.5-flash-lite"
+}
+
 # ─────────────── Cloud Run ───────────────
 
 variable "api_image" {

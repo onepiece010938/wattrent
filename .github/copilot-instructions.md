@@ -7,19 +7,19 @@
 
 ## 一句話描述
 
-WattRent 是一支 **Expo / React Native** 行動 App（iOS / Android / Web），搭配 **Go + Gin** REST API，幫租戶「拍電表 → 算電費 → 通知房東」。整體跑在 **GCP（Cloud Run + Firestore + Cloud Storage + Vertex AI Gemini）**。
+WattRent 是一支 **Expo / React Native** 行動 App（iOS / Android / Web），搭配 **Go + Gin** REST API，幫租戶「拍電表 → 算電費 → 通知房東」。整體跑在 **GCP（Cloud Run + Firestore + Cloud Storage）**，OCR 預設走 **Google AI Studio Gemini API**（免費 tier），可透過 `AI_BACKEND=vertex` 切回 Vertex AI。
 
 ## 倉庫結構
 
 ```
 wattrent/
-├── backend/                    ← Go 1.24.3 + Gin（部署 Cloud Run）
+├── backend/                    ← Go 1.25 + Gin（部署 Cloud Run）
 │   ├── main.go                  程式入口（含 graceful shutdown）
 │   ├── Dockerfile               distroless multi-stage build
 │   ├── .env.example             本地開發環境變數樣板
 │   └── internal/
 │       ├── config/              os.Getenv 集中讀取
-│       ├── clients/             Firebase Auth / Firestore / GCS / Vertex AI
+│       ├── clients/             Firebase Auth / Firestore / GCS / Gemini（AI Studio 或 Vertex）
 │       ├── handlers/            HTTP handler，呼叫 service
 │       ├── services/            業務邏輯（Firestore / Storage / OCR）
 │       ├── models/              資料結構（含 firestore tag）
@@ -43,7 +43,7 @@ wattrent/
 │       ├── dns/                Cloudflare records
 │       └── observability/      Sentry
 │
-├── frontend/wattrent/          ← Expo SDK 53 + React 19
+├── frontend/wattrent/          ← Expo SDK 55 + React Native 0.83 + React 19
 │   ├── app/                     expo-router 檔案式路由
 │   ├── components/              共用元件
 │   ├── services/                api.ts / settings.ts
@@ -94,7 +94,7 @@ just frontend         # tunnel 模式給實機 Expo Go 掃描
 | 後端 | Cloud Run（asia-east1） |
 | DB | Firestore Native Mode（asia-east1） |
 | 物件儲存 | GCS（電表照片，single-region asia-east1） |
-| OCR | Vertex AI Gemini 2.5 Flash-Lite |
+| OCR | Gemini 2.5 Flash-Lite（預設走 Google AI Studio 免費 tier；`AI_BACKEND=vertex` 切回 Vertex AI） |
 | Auth | Identity Platform / Firebase Auth |
 | DNS / CDN | Cloudflare |
 | Secret | GCP Secret Manager（注入 Cloud Run env） |
@@ -142,7 +142,7 @@ just frontend         # tunnel 模式給實機 Expo Go 掃描
 2. ~~`ImageAnalysisQuickstart.go` 含外洩 Azure key~~ → 已刪除。**請仍到 Azure portal 撤銷該金鑰**（git history 還在）。
 3. ~~後端資料只在記憶體~~ → 已改 Firestore。
 4. ~~沒有認證（hardcoded user1）~~ → 已接 Firebase Auth；本地開發走 `AUTH_BYPASS=true`。
-5. ~~OCR 是假的~~ → 後端已串 Vertex AI Gemini；前端 `capture.tsx` 仍須改呼叫 `apiService.processImage()`。
+5. ~~OCR 是假的~~ → 後端已串 Gemini（預設 AI Studio API，用 `google.golang.org/genai` unified SDK）；前端 `capture.tsx` 仍須改呼叫 `apiService.processImage()`。
 6. 硬編碼的 `192.168.0.172` / `ngrok` URL 仍散在前端，待清。
 7. `app.json` / `app.config.js` 共存，待二擇一。
 8. 沒有測試覆蓋率。

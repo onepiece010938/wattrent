@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -74,6 +75,38 @@ func (s *StorageService) SignedDownloadURL(ctx context.Context, gcsPath string) 
 		return "", time.Time{}, err
 	}
 	return url, expiresAt, nil
+}
+
+// DownloadObject 依 gs:// 路徑下載物件 bytes。主要讓 OCR service 拿到圖片原始
+// 數據送給 Gemini Developer API（不能直接讀 gs://）。同時回傳 contentType，用來送
+// MIME header。
+func (s *StorageService) DownloadObject(ctx context.Context, gcsPath string) (data []byte, contentType string, err error) {
+	bucket, object, err := parseGCSPath(gcsPath, s.bucketName)
+	if err != nil {
+		return nil, "", err
+	}
+
+	obj := s.client.Bucket(bucket).Object(object)
+	attrs, err := obj.Attrs(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("stat %s: %w", gcsPath, err)
+	}
+	contentType = attrs.ContentType
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	r, err := obj.NewReader(ctx)
+	if err != nil {
+		return nil, "", fmt.Errorf("open %s: %w", gcsPath, err)
+	}
+	defer r.Close()
+
+	data, err = io.ReadAll(r)
+	if err != nil {
+		return nil, "", fmt.Errorf("read %s: %w", gcsPath, err)
+	}
+	return data, contentType, nil
 }
 
 // ─────────────── helpers ───────────────

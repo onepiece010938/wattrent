@@ -52,11 +52,34 @@ resource "google_storage_bucket_iam_member" "run_meters" {
   member = "serviceAccount:${google_service_account.run.email}"
 }
 
-# Vertex AI 呼叫
+# Vertex AI 呼叫（AI_BACKEND=vertex 時才需要；AI_BACKEND=gemini 走 AI Studio API key 不需要此 IAM）
+# 為了讓 user 可以不跑 terraform apply 就在 console 切換 backend，這裡不加 count，一律授權。
 resource "google_project_iam_member" "run_vertex" {
   project = var.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.run.email}"
+}
+
+# ─────────── Gemini API key Secret（AI_BACKEND=gemini 時使用） ───────────
+# Terraform 只建 secret 容器；實際金鑰值請在 https://aistudio.google.com/apikey 取得後
+# 手動 `gcloud secrets versions add wattrent-gemini-api-key --data-file=-`。
+resource "google_secret_manager_secret" "gemini_api_key" {
+  count     = var.ai_backend == "gemini" ? 1 : 0
+  project   = var.project_id
+  secret_id = "${var.service_name}-gemini-api-key"
+  labels    = var.labels
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "run_gemini_api_key" {
+  count     = var.ai_backend == "gemini" ? 1 : 0
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.gemini_api_key[0].secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.run.email}"
 }
 
 # 簽 V4 signed URL（不需要額外 role，但要有 iam.serviceAccountTokenCreator on self）
@@ -136,6 +159,27 @@ resource "google_cloud_run_v2_service" "api" {
       env {
         name  = "API_FQDN"
         value = var.api_fqdn
+      }
+      env {
+        name  = "AI_BACKEND"
+        value = var.ai_backend
+      }
+      env {
+        name  = "GEMINI_MODEL"
+        value = var.gemini_model
+      }
+
+      dynamic "env" {
+        for_each = var.ai_backend == "gemini" ? [1] : []
+        content {
+          name = "GEMINI_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.gemini_api_key[0].secret_id
+              version = "latest"
+            }
+          }
+        }
       }
 
       dynamic "env" {

@@ -1,6 +1,6 @@
 ---
 applyTo: "backend/**"
-description: "WattRent 後端（Go + Gin + Firestore + Vertex AI）開發規範"
+description: "WattRent 後端（Go + Gin + Firestore + Gemini OCR）開發規範"
 ---
 
 # 後端 — Go + Gin + GCP 指南
@@ -11,12 +11,12 @@ description: "WattRent 後端（Go + Gin + Firestore + Vertex AI）開發規範"
 
 | 項目 | 版本 / 套件 |
 | --- | --- |
-| 語言 | Go **1.24.3**（`go.mod` 為準） |
-| Web 框架 | `github.com/gin-gonic/gin` v1.10 |
-| CORS | `github.com/gin-contrib/cors` |
+| 語言 | Go **1.25.0**（`go.mod` 為準；Dockerfile 走 `golang:1.25-alpine` 浮動 tag） |
+| Web 框架 | `github.com/gin-gonic/gin` v1.12 |
+| CORS | `github.com/gin-contrib/cors` v1.7 |
 | Firestore | `cloud.google.com/go/firestore` |
 | Cloud Storage | `cloud.google.com/go/storage` |
-| Vertex AI（Gemini） | `cloud.google.com/go/vertexai/genai` |
+| Gemini（AI Studio 或 Vertex AI） | `google.golang.org/genai`（unified SDK） |
 | Firebase Auth | `firebase.google.com/go/v4` |
 | 熱重載 | `github.com/air-verse/air`（設定見 `.air.toml`） |
 
@@ -32,7 +32,7 @@ backend/
     ├── config/             環境變數集中載入；其他套件不得直接讀 os.Getenv
     ├── clients/            外部 SDK client 統一建構與關閉
     ├── handlers/           接 gin.Context；不放業務邏輯
-    ├── services/           業務邏輯：bill、settings、storage（簽名 URL）、ocr（Vertex AI）
+    ├── services/           業務邏輯：bill、settings、storage（簽名 URL + 下載）、ocr（Gemini）
     ├── models/             API DTO + Firestore document（共用）
     └── middleware/         CORS、Auth（Firebase ID token）、ErrorHandler
 ```
@@ -70,12 +70,13 @@ backend/
 * 回應：`models.ApiResponse{Success, Data, Error, Message}`，`Error` / `Message` 都是 i18n key。
 * 不在後端組中文字串給使用者看（付款訊息 → 前端 `t('history.billMessage', {...})`）。
 
-## OCR（Vertex AI Gemini）
+## OCR（Gemini）
 
-* 模型：預設 `gemini-2.5-flash-lite`（`config.VertexModel` 可覆寫）。
+* 後端：`AI_BACKEND=gemini`（預設，Google AI Studio 免費 tier）或 `vertex`（Vertex AI，走 IAM、要錢、資料不被訓練）。二者共用 `google.golang.org/genai` SDK，切換只改 `ClientConfig.Backend`。
+* 模型：預設 `gemini-2.5-flash-lite`（`config.GeminiModel` / env `GEMINI_MODEL` 可覆寫；舊 env `VERTEX_MODEL` 仍有 fallback）。
 * `temperature = 0`、`responseMimeType = application/json`，強制結構化輸出。
 * Prompt 已內建「滾輪規則」；改 prompt 要小心一致性。
-* 圖片來源：擇一 `imageBase64` 或 `imageUrl`（含 `gs://`）。
+* 圖片來源：擇一 `imageBase64` 或 `imageUrl`（`gs://`）。不論 backend，`gs://` 都會先透過 Storage client 下載成 bytes 再送出（Gemini Developer API 不能直接讀 GCS）。
 * 失敗回 `errors.ocr.upstream_failed`（`502`），不要把 Gemini 內部錯誤直接洩漏。
 
 ## Cloud Storage
@@ -91,15 +92,19 @@ backend/
 | Name | 必填 | 用途 |
 | --- | --- | --- |
 | `APP_ENV` | – | dev / staging / production |
-| `GCP_PROJECT_ID` | ✅ | Firestore / Vertex AI / Storage |
+| `GCP_PROJECT_ID` | ✅ | Firestore / Storage（以及 AI_BACKEND=vertex 時 Vertex AI） |
 | `GCP_REGION` | – | 預設 `asia-east1` |
 | `METERS_BUCKET` | ✅ | GCS bucket 名稱 |
 | `PORT` | – | 預設 8080；Cloud Run 自動帶 |
 | `ALLOWED_ORIGINS` | – | CORS 白名單；production 不可 `*` |
 | `AUTH_BYPASS` | – | 本地開發跳過 token 驗證；production 強制 false |
 | `AUTH_BYPASS_UID` | – | bypass 時用的假 uid |
-| `VERTEX_MODEL` | – | 預設 `gemini-2.5-flash-lite` |
+| `AI_BACKEND` | – | `gemini`（預設）或 `vertex` |
+| `GEMINI_API_KEY` | ✅¹ | `AI_BACKEND=gemini` 時必填；從 <https://aistudio.google.com/apikey> 取得 |
+| `GEMINI_MODEL` | – | 預設 `gemini-2.5-flash-lite`；舊 `VERTEX_MODEL` 仍為 fallback |
 | `SENTRY_DSN` | – | 可選 |
+
+¹ production 加 `AI_BACKEND=gemini` 未帶 `GEMINI_API_KEY` 會被 `config.Load` 拒絕。
 
 新增環境變數 → 同時更新：
 1. `internal/config/config.go`

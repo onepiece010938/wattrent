@@ -19,10 +19,10 @@ module "project_services" {
 module "storage" {
   source = "./modules/storage"
 
-  project_id   = local.gcp_project_id
-  bucket_name  = local.meters_bucket_name
-  location     = var.gcp_storage_location
-  labels       = local.common_labels
+  project_id  = local.gcp_project_id
+  bucket_name = local.meters_bucket_name
+  location    = var.gcp_storage_location
+  labels      = local.common_labels
 
   depends_on = [module.project_services]
 }
@@ -42,7 +42,7 @@ module "database" {
 module "auth" {
   source = "./modules/auth"
 
-  project_id         = local.gcp_project_id
+  project_id = local.gcp_project_id
   authorized_domains = concat(
     var.auth_authorized_domains,
     var.domain_root != "" ? [var.domain_root] : [],
@@ -67,6 +67,8 @@ module "api" {
   env               = var.env
   api_fqdn          = local.api_fqdn
   sentry_dsn_secret = var.enable_sentry ? module.observability[0].sentry_dsn_secret_id : ""
+  ai_backend        = var.ai_backend
+  gemini_model      = var.gemini_model
   labels            = local.common_labels
 
   depends_on = [
@@ -80,12 +82,12 @@ module "api" {
 module "cicd" {
   source = "./modules/cicd"
 
-  project_id              = local.gcp_project_id
-  github_repository       = var.github_repository
-  cloud_run_service_name  = module.api.service_name
-  cloud_run_location      = var.gcp_region
-  meters_bucket           = module.storage.bucket_name
-  artifact_registry_repo  = module.api.artifact_registry_repo
+  project_id             = local.gcp_project_id
+  github_repository      = var.github_repository
+  cloud_run_service_name = module.api.service_name
+  cloud_run_location     = var.gcp_region
+  meters_bucket          = module.storage.bucket_name
+  artifact_registry_repo = module.api.artifact_registry_repo
 
   depends_on = [module.project_services, module.api]
 }

@@ -25,10 +25,18 @@ description: "WattRent IaC（Terraform + GCP + Cloudflare + Sentry）規範"
 | `database` | Firestore Native database（每個 project 只能有一個） |
 | `storage` | 電表照片 GCS bucket（single-region + lifecycle） |
 | `auth` | Identity Platform 設定 |
-| `api` | Cloud Run + runtime SA + Artifact Registry + IAM + domain mapping |
+| `api` | Cloud Run + runtime SA + Artifact Registry + IAM + domain mapping + Gemini API key Secret |
 | `cicd` | GitHub Actions Workload Identity Federation |
 | `dns` | Cloudflare DNS records |
 | `observability` | Sentry projects + Secret Manager（DSN） |
+
+## 環境 / Secret
+
+* `var.ai_backend`：`gemini`（預設、AI Studio API key）或 `vertex`（Vertex AI）。
+  * `gemini` 時 `api` module 會在 Secret Manager 建 `<service>-gemini-api-key` secret 容器；
+    實際金鑰請手動跑：
+    `gcloud secrets versions add wattrent-api-gemini-api-key --data-file=-` 並貼上 AI Studio key 內容。
+* Cloud Run env中 `AI_BACKEND` / `GEMINI_MODEL` 是明文；`GEMINI_API_KEY` 走 secret_key_ref。
 
 ## 命名
 
