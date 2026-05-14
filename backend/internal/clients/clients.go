@@ -6,8 +6,8 @@
 //   - GCP authentication uses Application Default Credentials
 //     (local: gcloud auth; Cloud Run: built-in service account; CI: WIF).
 //   - Gemini authentication depends on AI_BACKEND:
-//       "gemini" (default) -> Google AI Studio API key (free tier)
-//       "vertex"           -> Vertex AI, sharing the same ADC above
+//     "gemini" (default) -> Google AI Studio API key (free tier)
+//     "vertex"           -> Vertex AI, sharing the same ADC above
 package clients
 
 import (
