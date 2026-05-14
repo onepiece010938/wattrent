@@ -4,6 +4,6 @@ variable "project_id" {
 }
 
 variable "authorized_domains" {
-  description = "Identity Platform 允許 OAuth redirect 的網域"
+  description = "Domains allowed for OAuth redirects in Identity Platform"
   type        = list(string)
 }

@@ -9,7 +9,7 @@ output "pubsub_topic" {
 }
 
 output "killer_function_name" {
-  description = "Kill-switch Cloud Function 名稱（沒啟用為空）"
+  description = "Kill-switch Cloud Function name (empty when disabled)"
   value       = var.enable_kill_switch ? google_cloudfunctions2_function.killer[0].name : ""
 }
 

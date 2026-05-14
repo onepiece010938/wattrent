@@ -7,13 +7,13 @@ const STORAGE_KEYS = {
 };
 
 class StorageService {
-  // 用戶設定
+  // User settings
   async getUserSettings(): Promise<UserSettings | null> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
       return data ? JSON.parse(data) : null;
     } catch (error) {
-      console.error('讀取用戶設定失敗:', error);
+      console.error('failed to read user settings:', error);
       return null;
     }
   }
@@ -25,18 +25,18 @@ class StorageService {
         JSON.stringify(settings)
       );
     } catch (error) {
-      console.error('儲存用戶設定失敗:', error);
+      console.error('failed to save user settings:', error);
       throw error;
     }
   }
 
-  // 最新讀數
+  // Latest reading
   async getLatestReading(): Promise<number | null> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.LATEST_READING);
       return data ? parseFloat(data) : null;
     } catch (error) {
-      console.error('讀取最新讀數失敗:', error);
+      console.error('failed to read latest reading:', error);
       return null;
     }
   }
@@ -48,12 +48,12 @@ class StorageService {
         reading.toString()
       );
     } catch (error) {
-      console.error('儲存最新讀數失敗:', error);
+      console.error('failed to save latest reading:', error);
       throw error;
     }
   }
 
-  // 清除所有資料
+  // Clear all data
   async clearAllData(): Promise<void> {
     try {
       await AsyncStorage.multiRemove([
@@ -61,7 +61,7 @@ class StorageService {
         STORAGE_KEYS.LATEST_READING,
       ]);
     } catch (error) {
-      console.error('清除資料失敗:', error);
+      console.error('failed to clear data:', error);
       throw error;
     }
   }

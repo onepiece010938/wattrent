@@ -1,42 +1,42 @@
 # ──────────────────────────────────────────────────────────────────────────
-# 頂層輸入變數
+# Top-level input variables
 #
-# 大多數值由 envs/{env}.tfvars 提供；這裡只放型別與 default
+# Most values come from envs/{env}.tfvars; this file only declares types and defaults.
 # ──────────────────────────────────────────────────────────────────────────
 
 variable "env" {
-  description = "環境名稱：staging / production / preview-{prNumber}"
+  description = "Environment name: staging / production / preview-{prNumber}"
   type        = string
   validation {
     condition     = can(regex("^(staging|production|preview-[0-9]+)$", var.env))
-    error_message = "env 必須是 staging、production，或 preview-{number}"
+    error_message = "env must be staging, production, or preview-{number}"
   }
 }
 
 variable "gcp_project_id" {
-  description = "GCP project ID。為空則由 locals 用 var.env 組合（wattrent-{env}）"
+  description = "GCP project ID. If empty, locals derives it from var.env (wattrent-{env})."
   type        = string
   default     = ""
 }
 
 variable "gcp_billing_account" {
-  description = "GCP Billing Account ID（XXXXXX-XXXXXX-XXXXXX）。billing module + Identity Platform 都會用到，必填"
+  description = "GCP Billing Account ID (XXXXXX-XXXXXX-XXXXXX). Required by both the billing module and Identity Platform."
   type        = string
   sensitive   = true
   validation {
     condition     = can(regex("^[0-9A-F]{6}-[0-9A-F]{6}-[0-9A-F]{6}$", var.gcp_billing_account))
-    error_message = "格式必須是 XXXXXX-XXXXXX-XXXXXX（六碼 hex 三段）"
+    error_message = "Format must be XXXXXX-XXXXXX-XXXXXX (three groups of 6 hex chars)"
   }
 }
 
 variable "gcp_region" {
-  description = "GCP 主要 region；Cloud Run、Firestore、GCS、Vertex AI 都跑這個"
+  description = "Primary GCP region; Cloud Run, Firestore, GCS, and Vertex AI all run here."
   type        = string
   default     = "asia-east1"
 }
 
 variable "gcp_storage_location" {
-  description = "GCS bucket location；single-region 比 multi-region 便宜"
+  description = "GCS bucket location; single-region is cheaper than multi-region."
   type        = string
   default     = "ASIA-EAST1"
 }
@@ -44,17 +44,17 @@ variable "gcp_storage_location" {
 # ─────────────── AI / OCR ───────────────
 
 variable "ai_backend" {
-  description = "OCR 走哪個 backend：gemini（預設、Google AI Studio 免費 tier）或 vertex（Vertex AI，要錢、走 IAM）"
+  description = "OCR backend: gemini (default, Google AI Studio free tier) or vertex (Vertex AI; paid; uses IAM)."
   type        = string
   default     = "gemini"
   validation {
     condition     = contains(["gemini", "vertex"], var.ai_backend)
-    error_message = "ai_backend 必須是 gemini 或 vertex"
+    error_message = "ai_backend must be gemini or vertex"
   }
 }
 
 variable "gemini_model" {
-  description = "Gemini 模型名稱（兩個 backend 共用）"
+  description = "Gemini model name (shared by both backends)."
   type        = string
   default     = "gemini-2.5-flash-lite"
 }
@@ -62,31 +62,31 @@ variable "gemini_model" {
 # ─────────────── Cloud Run ───────────────
 
 variable "api_image" {
-  description = "Cloud Run container image。首次佈署可以給 placeholder（例 gcr.io/cloudrun/hello），之後 CI/CD push image 時 module 中 lifecycle.ignore_changes 會讓 TF 不反覆。"
+  description = "Cloud Run container image. The first deploy can use a placeholder (e.g. gcr.io/cloudrun/hello); subsequent CI/CD image pushes are absorbed by lifecycle.ignore_changes inside the module so TF does not bounce."
   type        = string
   default     = "gcr.io/cloudrun/hello"
 }
 
 variable "api_min_instances" {
-  description = "Cloud Run 最小執行個體數；0 = scale to zero（會有 cold start）"
+  description = "Cloud Run min instance count; 0 = scale-to-zero (incurs cold starts)."
   type        = number
   default     = 0
 }
 
 variable "api_max_instances" {
-  description = "Cloud Run 最大執行個體數；超過會排隊"
+  description = "Cloud Run max instance count; excess requests queue."
   type        = number
   default     = 10
 }
 
 variable "api_cpu" {
-  description = "Cloud Run CPU 配額（vCPU）"
+  description = "Cloud Run CPU allocation (vCPU)."
   type        = string
   default     = "1"
 }
 
 variable "api_memory" {
-  description = "Cloud Run 記憶體配額"
+  description = "Cloud Run memory allocation."
   type        = string
   default     = "512Mi"
 }
@@ -94,19 +94,19 @@ variable "api_memory" {
 # ─────────────── Domain / DNS ───────────────
 
 variable "domain_root" {
-  description = "根網域，例：wattrent.app"
+  description = "Root domain, e.g. wattrent.app."
   type        = string
   default     = ""
 }
 
 variable "api_subdomain" {
-  description = "API 子網域，會組成 api.{env}.{domain_root}（production 不加 env）"
+  description = "API subdomain. Composed as api.{env}.{domain_root} (production drops the env segment)."
   type        = string
   default     = "api"
 }
 
 variable "cloudflare_zone_id" {
-  description = "Cloudflare zone ID（網域已加入 CF 帳號）"
+  description = "Cloudflare zone ID (the domain must already be in your Cloudflare account)."
   type        = string
   default     = ""
 }
@@ -114,7 +114,7 @@ variable "cloudflare_zone_id" {
 # ─────────────── Auth ───────────────
 
 variable "auth_authorized_domains" {
-  description = "Identity Platform 允許的 OAuth redirect 網域"
+  description = "Domains allowed for OAuth redirects in Identity Platform."
   type        = list(string)
   default     = ["localhost"]
 }
@@ -122,7 +122,7 @@ variable "auth_authorized_domains" {
 # ─────────────── CI/CD ───────────────
 
 variable "github_repository" {
-  description = "GitHub repo（owner/repo），給 Workload Identity Federation 用"
+  description = "GitHub repo (owner/repo) used by Workload Identity Federation."
   type        = string
   default     = ""
 }
@@ -136,51 +136,51 @@ variable "sentry_organization" {
 }
 
 variable "enable_sentry" {
-  description = "是否建立 Sentry project"
+  description = "Whether to create the Sentry project."
   type        = bool
   default     = false
 }
 
-# ─────────────── Billing / 預算上限（kill switch） ───────────────
+# ─────────────── Billing / budget cap (kill switch) ───────────────
 
 variable "billing_budget_amount" {
-  description = "每月預算上限金額（整數）。達到 100% 會自動 disable billing，整個 project 服務停擺，避免被多收錢"
+  description = "Monthly budget cap (integer). Hitting 100% disables billing automatically, taking the entire project offline to prevent further charges."
   type        = number
   default     = 10
   validation {
     condition     = var.billing_budget_amount > 0
-    error_message = "預算必須 > 0；如不想用 budget，請設 billing_kill_switch_enabled=false 並把 budget 拉高"
+    error_message = "Budget must be > 0; if you do not want a budget, set billing_kill_switch_enabled=false and raise the budget instead."
   }
 }
 
 variable "billing_budget_currency" {
-  description = "預算幣別。必須等於 billing account 設定的幣別"
+  description = "Budget currency. Must match the currency configured on the billing account."
   type        = string
   default     = "USD"
 }
 
 variable "billing_alert_thresholds" {
-  description = "純通知 threshold（小數，0.5 = 50%）。100% 會自動加，不用列"
+  description = "Notify-only thresholds (decimal, 0.5 = 50%). 100% is added automatically; do not list it here."
   type        = list(number)
   default     = [0.5, 0.9]
 }
 
 variable "billing_kill_switch_enabled" {
-  description = "true 時達到 100% 自動停 billing → 所有付費服務 503。false 只發 email"
+  description = "When true, hitting 100% disables billing automatically → every paid service returns 503. When false, only an email is sent."
   type        = bool
   default     = true
 }
 
 variable "billing_notification_channels" {
-  description = "額外的 Cloud Monitoring notification channel（email/SMS/Slack）。空陣列代表只用 billing account 預設 email"
+  description = "Extra Cloud Monitoring notification channels (email/SMS/Slack). An empty list means use only the billing account's default email."
   type        = list(string)
   default     = []
 }
 
-# ─────────────── 共用 labels ───────────────
+# ─────────────── Common labels ───────────────
 
 variable "extra_labels" {
-  description = "套用到所有支援 labels 的資源"
+  description = "Applied to every resource that supports labels."
   type        = map(string)
   default     = {}
 }

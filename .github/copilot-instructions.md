@@ -1,153 +1,153 @@
-# WattRent — Copilot / Agent 全域指南
+# WattRent — Copilot / Agent global guide
 
-此檔案會在所有對話中自動載入，提供整個 repo 的高層認知。
-**範圍特定**（前端、後端、infra）規則請見 [`.github/instructions/`](./instructions/) 目錄，會依檔案路徑自動套用。
+This file is auto-loaded into every conversation and provides the high-level mental model for the whole repo.
+**Scope-specific** rules (frontend, backend, infra) live under [`.github/instructions/`](./instructions/) and are auto-applied based on file path.
 
 ---
 
-## 一句話描述
+## One-line summary
 
-WattRent 是一支 **Expo / React Native** 行動 App（iOS / Android / Web），搭配 **Go + Gin** REST API，幫租戶「拍電表 → 算電費 → 通知房東」。整體跑在 **GCP（Cloud Run + Firestore + Cloud Storage）**，OCR 預設走 **Google AI Studio Gemini API**（免費 tier），可透過 `AI_BACKEND=vertex` 切回 Vertex AI。
+WattRent is an **Expo / React Native** mobile app (iOS / Android / Web) backed by a **Go + Gin** REST API that helps tenants "snap the meter → compute the bill → notify the landlord". Everything runs on **GCP (Cloud Run + Firestore + Cloud Storage)**. OCR defaults to the **Google AI Studio Gemini API** (free tier) and can be swapped to Vertex AI via `AI_BACKEND=vertex`.
 
-## 倉庫結構
+## Repository layout
 
 ```
 wattrent/
-├── backend/                    ← Go 1.25 + Gin（部署 Cloud Run）
-│   ├── main.go                  程式入口（含 graceful shutdown）
+├── backend/                    ← Go 1.25 + Gin (deployed to Cloud Run)
+│   ├── main.go                  Entry point (with graceful shutdown)
 │   ├── Dockerfile               distroless multi-stage build
-│   ├── .env.example             本地開發環境變數樣板
+│   ├── .env.example             Local dev env-var template
 │   └── internal/
-│       ├── config/              os.Getenv 集中讀取
-│       ├── clients/             Firebase Auth / Firestore / GCS / Gemini（AI Studio 或 Vertex）
-│       ├── handlers/            HTTP handler，呼叫 service
-│       ├── services/            業務邏輯（Firestore / Storage / OCR）
-│       ├── models/              資料結構（含 firestore tag）
-│       └── middleware/          CORS、Auth、ErrorHandler
+│       ├── config/              Centralised os.Getenv loader
+│       ├── clients/             Firebase Auth / Firestore / GCS / Gemini (AI Studio or Vertex)
+│       ├── handlers/            HTTP handlers; call into services
+│       ├── services/            Business logic (Firestore / Storage / OCR)
+│       ├── models/              Data structures (with firestore tags)
+│       └── middleware/          CORS, Auth, ErrorHandler
 │
-├── firestore/                  ← Firestore rules + indexes（給 firebase deploy）
+├── firestore/                  ← Firestore rules + indexes (consumed by `firebase deploy`)
 │   ├── firestore.rules
 │   └── firestore.indexes.json
-├── firebase.json               讓 firebase CLI 找上面兩個檔
+├── firebase.json               Tells the firebase CLI where the two files above live
 │
-├── terraform/                  ← IaC（HCP Terraform Cloud + GCP + Cloudflare + Sentry）
+├── terraform/                  ← IaC (HCP Terraform Cloud + GCP + Cloudflare + Sentry)
 │   ├── main.tf / providers.tf / locals.tf / outputs.tf …
 │   ├── envs/{staging,production}.tfvars
 │   └── modules/
-│       ├── project_services/   啟用 GCP API
+│       ├── project_services/   Enable GCP APIs
 │       ├── api/                Cloud Run + SA + Artifact Registry
 │       ├── database/           Firestore database
-│       ├── storage/            GCS bucket（電表照片）
+│       ├── storage/            GCS bucket (meter photos)
 │       ├── auth/               Identity Platform
 │       ├── cicd/               GitHub Actions WIF
 │       ├── dns/                Cloudflare records
 │       └── observability/      Sentry
 │
 ├── frontend/wattrent/          ← Expo SDK 55 + React Native 0.83 + React 19
-│   ├── app/                     expo-router 檔案式路由
-│   ├── components/              共用元件
+│   ├── app/                     expo-router file-based routes
+│   ├── components/              Shared components
 │   ├── services/                api.ts / settings.ts
-│   ├── lib/                     i18n、cn、useColorScheme
+│   ├── lib/                     i18n, cn, useColorScheme
 │   ├── locales/{en,zh-TW}.json
-│   └── app.config.js            ⚠️ 真正的 Expo config（app.json 過時）
+│   └── app.config.js            ⚠️ The real Expo config (app.json is legacy)
 │
 ├── .github/
-│   ├── copilot-instructions.md  本檔
-│   ├── instructions/            scope-specific 規則
+│   ├── copilot-instructions.md  This file
+│   ├── instructions/            Scope-specific rules
 │   └── workflows/               CI / deploy / infra / security
 │
-├── Dockerfile                   舊的開發容器（漸退場）
-├── Makefile / justfile          一鍵啟動（justfile 為主）
+├── Dockerfile                   Old dev container (being phased out)
+├── justfile                     One-shot dev shortcuts
 └── README.md
 ```
 
-## 開發環境
+## Dev environment
 
-* OS：**Windows 11**
-* Shell：**PowerShell**（指令請用 `;` 串接，**不要用 `&&`**）
-* 字符編碼：UTF-8（確保中文不變亂碼）
-* Cloud CLI：`gcloud`、`firebase`、`terraform`、`eas`
+* OS: **Windows 11**
+* Shell: **PowerShell** (chain commands with `;`, **never `&&`**)
+* Encoding: UTF-8
+* Cloud CLIs: `gcloud`, `firebase`, `terraform`, `eas`
 
-## 啟動方式
+## How to start
 
 ```powershell
-# 一次裝好所有相依
+# Install everything
 just install
 
-# 後端（Cloud Run 本地模擬：Air 熱重載）
+# Backend (local Cloud Run sim with Air hot reload)
 just backend          # → http://localhost:8080
-# 本地 dev 預設 AUTH_BYPASS=true，使用假 uid
+# Local dev defaults to AUTH_BYPASS=true with a fake uid
 
-# 前端
+# Frontend
 just frontend-web     # web → http://localhost:8081
-just frontend         # tunnel 模式給實機 Expo Go 掃描
+just frontend         # tunnel mode (scan QR code with Expo Go on a real device)
 ```
 
-> 沒有 `just` 也可改用 `make` 或直接 `cd backend && air` / `cd frontend/wattrent && npx expo start`。
+> Without `just` you can run `cd backend; air` / `cd frontend/wattrent; npx expo start` directly.
 
-## 部署架構
+## Deploy architecture
 
-| 層級 | 服務 |
+| Layer | Service |
 | --- | --- |
-| 後端 | Cloud Run（asia-east1） |
-| DB | Firestore Native Mode（asia-east1） |
-| 物件儲存 | GCS（電表照片，single-region asia-east1） |
-| OCR | Gemini 2.5 Flash-Lite（預設走 Google AI Studio 免費 tier；`AI_BACKEND=vertex` 切回 Vertex AI） |
+| Backend | Cloud Run (asia-east1) |
+| DB | Firestore Native Mode (asia-east1) |
+| Object storage | GCS (meter photos, single-region asia-east1) |
+| OCR | Gemini 2.5 Flash-Lite (defaults to Google AI Studio free tier; `AI_BACKEND=vertex` switches to Vertex AI) |
 | Auth | Identity Platform / Firebase Auth |
 | DNS / CDN | Cloudflare |
-| Secret | GCP Secret Manager（注入 Cloud Run env） |
-| IaC | Terraform（state on HCP Terraform Cloud） |
-| CI/CD | GitHub Actions + Workload Identity Federation（無 long-lived key） |
-| 觀測 | Sentry（前後端） + Cloud Logging |
+| Secrets | GCP Secret Manager (injected into Cloud Run env) |
+| IaC | Terraform (state on HCP Terraform Cloud) |
+| CI/CD | GitHub Actions + Workload Identity Federation (no long-lived keys) |
+| Observability | Sentry (front + back) + Cloud Logging |
 
-詳見：[terraform/README.md](../terraform/README.md)、[.github/workflows/README.md](./workflows/README.md)
+See [terraform/README.md](../terraform/README.md) and [.github/workflows/README.md](./workflows/README.md) for details.
 
-> （內部設計/成本記錄請看本機 `docs/` folder，該資料夾不進 repo）
+> (Internal design / cost notes live in the local `docs/` folder, which is git-ignored.)
 
-## 共通規範
+## Cross-cutting rules
 
-### 語言 / i18n
-* **前端**：所有 user-facing 字串走 i18n（`locales/en.json`、`locales/zh-TW.json`）。
-* **後端**：禁止產生 user-facing 字串。`ApiResponse.Error` / `Message` 一律存 **i18n key**（例：`bills.created`、`errors.bill.not_found`），由前端 `t()` 翻譯。
+### Language / i18n
+* **Frontend**: all user-facing strings go through i18n (`locales/en.json`, `locales/zh-TW.json`).
+* **Backend**: never produce user-facing strings. `ApiResponse.Error` / `Message` always store an **i18n key** (e.g. `bills.created`, `errors.bill.not_found`); the frontend's `t()` translates them.
 
-### API 規範
-* 所有路徑在 `/api/v1/` 之下。
-* RESTful，複數資源名詞（`/bills`、`/settings`、`/uploads`、`/ocr`）。
-* 統一回應：`models.ApiResponse{Success, Data, Error, Message}`。
-* 時間：JSON 用 RFC3339 字串。
-* 金錢 / 數量：`float64` ↔ `number`。
-* 認證：除了 `/health`，全部 endpoint 都需要 `Authorization: Bearer <Firebase ID token>`。
+### API conventions
+* All routes live under `/api/v1/`.
+* RESTful with plural resource nouns (`/bills`, `/settings`, `/uploads`, `/ocr`).
+* Uniform response: `models.ApiResponse{Success, Data, Error, Message}`.
+* Timestamps in JSON use RFC3339 strings.
+* Money / quantities use `float64` ↔ `number`.
+* Auth: every endpoint except `/health` requires `Authorization: Bearer <Firebase ID token>`.
 
-### 安全
-* **絕對禁止**把 secret / API key 寫進原始碼，一律走環境變數 + Secret Manager。
-* 後端不可信任 client 傳來的 `userId`，**永遠**從 verified ID token 拿（`middleware.GetUID(c)`）。
-* GCS object 不允許 public read；前端用後端發的 V4 signed URL（15 min for upload, 1h for read）。
-* CORS：`production` 強制白名單，禁用 `*`。
+### Security
+* **Never** hard-code secrets / API keys; always use env vars + Secret Manager.
+* The backend must not trust `userId` from the client; **always** read it from the verified ID token (`middleware.GetUID(c)`).
+* GCS objects are not public-readable; the frontend uses backend-issued V4 signed URLs (15 min for upload, 1 h for read).
+* CORS: `production` enforces an allowlist; `*` is forbidden.
 
-### 部署 / IaC
-* 所有 GCP 資源都靠 Terraform 管理，**不要在 console 手動點**（除非是 bootstrap 步驟）。
-* GitHub Actions 走 OIDC（Workload Identity Federation），repo 不放 long-lived GCP key。
-* Cloud Run image tag 由 CI 推；Terraform 用 `lifecycle.ignore_changes` 避免互踩。
+### Deploy / IaC
+* All GCP resources are managed by Terraform — **don't click around in the console** (except for bootstrap).
+* GitHub Actions uses OIDC (Workload Identity Federation); no long-lived GCP keys live in the repo.
+* CI pushes the Cloud Run image tag; Terraform uses `lifecycle.ignore_changes` to avoid drift.
 
-## 工具偏好
+## Tooling preferences
 
-* 後端：`go mod`（不要混 vendor）；lint = `gofmt` + `go vet`；測試 = `testing` + table-driven。
-* 前端：`npm`（不要混 yarn / pnpm）；lint = `expo lint`；測試（未實作）= Jest。
-* IaC：`terraform fmt -recursive` + `terraform validate`。
-* 容器：multi-stage + distroless，不要 push 開發 image 到 production registry。
+* Backend: `go mod` (no vendor dir); lint = `gofmt` + `go vet`; tests = `testing` + table-driven.
+* Frontend: `npm` (don't mix yarn / pnpm); lint = `expo lint`; tests (not yet implemented) = Jest.
+* IaC: `terraform fmt -recursive` + `terraform validate`.
+* Containers: multi-stage + distroless; don't push dev images to the production registry.
 
-## 已知遺留問題
+## Known legacy issues
 
-1. ~~`backend/main.oldgo` 副檔名錯誤~~ → 已重寫 `backend/main.go`。
-2. ~~`ImageAnalysisQuickstart.go` 含外洩 Azure key~~ → 已刪除。**請仍到 Azure portal 撤銷該金鑰**（git history 還在）。
-3. ~~後端資料只在記憶體~~ → 已改 Firestore。
-4. ~~沒有認證（hardcoded user1）~~ → 已接 Firebase Auth；本地開發走 `AUTH_BYPASS=true`。
-5. ~~OCR 是假的~~ → 後端已串 Gemini（預設 AI Studio API，用 `google.golang.org/genai` unified SDK）；前端 `capture.tsx` 仍須改呼叫 `apiService.processImage()`。
-6. 硬編碼的 `192.168.0.172` / `ngrok` URL 仍散在前端，待清。
-7. `app.json` / `app.config.js` 共存，待二擇一。
-8. 沒有測試覆蓋率。
+1. ~~`backend/main.oldgo` had the wrong extension~~ → rewritten as `backend/main.go`.
+2. ~~`ImageAnalysisQuickstart.go` leaked an Azure key~~ → deleted. **Still revoke that key in the Azure portal** (it remains in git history).
+3. ~~Backend stored data in memory only~~ → now on Firestore.
+4. ~~No auth (hard-coded user1)~~ → Firebase Auth wired up; local dev uses `AUTH_BYPASS=true`.
+5. ~~OCR was a stub~~ → backend now calls Gemini (defaults to AI Studio API via the `google.golang.org/genai` unified SDK); the frontend `capture.tsx` still needs to call `apiService.processImage()`.
+6. Hard-coded `192.168.0.172` / `ngrok` URLs are still scattered through the frontend; needs cleanup.
+7. `app.json` and `app.config.js` both exist; pick one.
+8. No test coverage yet.
 
-## 文件規範
+## Documentation rules
 
-* `docs/` 資料夾不在 repo中（已 gitignore）— 重要架構 / 成本 / 決策記錄都在本機 `docs/` 下，請說明變更時同步更新。
-* 不要在沒被要求的情況下大量新增 markdown 檔。
+* The `docs/` folder is not in the repo (git-ignored). Important architecture / cost / decision records live in the local `docs/` folder; keep it in sync when you change things.
+* Don't add lots of new markdown files unless asked.

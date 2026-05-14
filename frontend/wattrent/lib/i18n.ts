@@ -3,17 +3,17 @@ import { initReactI18next } from 'react-i18next';
 import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// 導入語言資源
+// Import language resources
 import zhTW from '../locales/zh-TW.json';
 import en from '../locales/en.json';
 
 const LANGUAGE_STORAGE_KEY = 'user_language';
 
-// 支援的語言列表
+// Supported languages
 export const SUPPORTED_LANGUAGES = ['zh-TW', 'en'] as const;
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 
-// 語言資源
+// Language resources
 const resources = {
   'zh-TW': {
     translation: zhTW,
@@ -23,27 +23,27 @@ const resources = {
   },
 };
 
-// 檢測系統語言並返回支援的語言
+// Detect the system language and map it to a supported language.
 const getSystemLanguage = (): SupportedLanguage => {
   const systemLocale = Localization.getLocales()[0];
   const systemLanguage = systemLocale?.languageTag || 'en';
-  
-  // 檢查系統語言是否在支援列表中
+
+  // Exact match against the supported list
   if (SUPPORTED_LANGUAGES.includes(systemLanguage as SupportedLanguage)) {
     return systemLanguage as SupportedLanguage;
   }
-  
-  // 檢查語言代碼（不包含地區）
+
+  // Match by language code only (drop the region)
   const languageCode = systemLanguage.split('-')[0];
   if (languageCode === 'zh') {
     return 'zh-TW';
   }
-  
-  // 預設使用英文
+
+  // Default to English
   return 'en';
 };
 
-// 從 AsyncStorage 獲取儲存的語言設定
+// Read the persisted language from AsyncStorage.
 const getStoredLanguage = async (): Promise<SupportedLanguage | null> => {
   try {
     const storedLanguage = await AsyncStorage.getItem(LANGUAGE_STORAGE_KEY);
@@ -56,7 +56,7 @@ const getStoredLanguage = async (): Promise<SupportedLanguage | null> => {
   return null;
 };
 
-// 儲存語言設定到 AsyncStorage
+// Persist the language to AsyncStorage.
 export const setStoredLanguage = async (language: SupportedLanguage): Promise<void> => {
   try {
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, language);
@@ -65,7 +65,7 @@ export const setStoredLanguage = async (language: SupportedLanguage): Promise<vo
   }
 };
 
-// 初始化 i18n
+// Initialise i18n.
 const initI18n = async () => {
   const storedLanguage = await getStoredLanguage();
   const systemLanguage = getSystemLanguage();
@@ -80,29 +80,29 @@ const initI18n = async () => {
       debug: __DEV__,
       
       interpolation: {
-        escapeValue: false, // React Native 已經安全處理
+        escapeValue: false, // React Native already handles escaping safely
       },
-      
+
       react: {
-        useSuspense: false, // 避免在 React Native 中使用 Suspense
+        useSuspense: false, // Avoid React Suspense in React Native
       },
     });
 
   return initialLanguage;
 };
 
-// 變更語言
+// Switch language.
 export const changeLanguage = async (language: SupportedLanguage): Promise<void> => {
   await i18n.changeLanguage(language);
   await setStoredLanguage(language);
 };
 
-// 獲取當前語言
+// Get the current language.
 export const getCurrentLanguage = (): SupportedLanguage => {
   return i18n.language as SupportedLanguage;
 };
 
-// 獲取系統語言（用於顯示）
+// Get the system language (for display purposes).
 export const getSystemLanguageForDisplay = (): SupportedLanguage => {
   return getSystemLanguage();
 };

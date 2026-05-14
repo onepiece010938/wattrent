@@ -1,23 +1,23 @@
-# WattRent 防火牆設定腳本
-# 需要以管理員身份執行
+# WattRent firewall setup script
+# Must be run as Administrator
 
-Write-Host "設定 WattRent 防火牆規則..." -ForegroundColor Yellow
+Write-Host "Setting up WattRent firewall rules..." -ForegroundColor Yellow
 
-# 檢查是否以管理員身份執行
+# Verify the script is running with administrator privileges
 if (-NOT ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
 {
-    Write-Host "此腳本需要管理員權限。" -ForegroundColor Red
-    Write-Host "請以管理員身份執行 PowerShell，然後再次執行此腳本。" -ForegroundColor Yellow
+    Write-Host "This script requires administrator privileges." -ForegroundColor Red
+    Write-Host "Please run PowerShell as Administrator, then re-run this script." -ForegroundColor Yellow
     pause
     exit
 }
 
-# 添加防火牆規則
+# Add firewall rules
 try {
-    # 移除舊規則（如果存在）
+    # Remove the old rule if it exists
     Remove-NetFirewallRule -DisplayName "WattRent Backend" -ErrorAction SilentlyContinue
     
-    # 添加新規則
+    # Add the new rule
     New-NetFirewallRule -DisplayName "WattRent Backend" `
                         -Direction Inbound `
                         -Protocol TCP `
@@ -25,11 +25,11 @@ try {
                         -Action Allow `
                         -Profile Any
     
-    Write-Host "✓ 防火牆規則已成功建立！" -ForegroundColor Green
-    Write-Host "  端口 8080 現在已開放入站連線。" -ForegroundColor Green
+    Write-Host "Firewall rule created successfully." -ForegroundColor Green
+    Write-Host "  Port 8080 is now open for inbound connections." -ForegroundColor Green
 } catch {
-    Write-Host "✗ 建立防火牆規則時發生錯誤：" -ForegroundColor Red
+    Write-Host "Failed to create firewall rule:" -ForegroundColor Red
     Write-Host $_.Exception.Message -ForegroundColor Red
 }
 
-pause 
+pause

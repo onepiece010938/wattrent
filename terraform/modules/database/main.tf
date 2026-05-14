@@ -1,12 +1,12 @@
-# ──────────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # database: Firestore (Native mode)
 #
-# 注意：每個 GCP project 只能有一個 default Firestore database，
-# 一旦建立就無法改 location。
+# Note: each GCP project can only have ONE default Firestore database, and
+# its location cannot be changed once created.
 #
-# Rules / indexes 由 GitHub Actions 用 firebase CLI 部署
-# （把 firestore/firestore.rules + firestore.indexes.json 推上去）
-# ──────────────────────────────────────────────────────────────────────────
+# Rules / indexes are deployed by GitHub Actions via the firebase CLI
+# (pushing firestore/firestore.rules + firestore.indexes.json).
+# ----------------------------------------------------------------------
 
 resource "google_firestore_database" "default" {
   project     = var.project_id
@@ -14,7 +14,7 @@ resource "google_firestore_database" "default" {
   location_id = var.location
   type        = "FIRESTORE_NATIVE"
 
-  # 防止資料庫被誤刪（只有 ABANDON 才允許 destroy 不刪資料）
+  # Prevent the database from being accidentally destroyed (only ABANDON allows destroy without deleting data)
   delete_protection_state = "DELETE_PROTECTION_ENABLED"
   deletion_policy         = "DELETE"
 

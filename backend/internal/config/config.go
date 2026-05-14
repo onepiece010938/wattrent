@@ -1,6 +1,7 @@
-// Package config 統一從環境變數讀取設定。
+// Package config centralises reading of environment variables.
 //
-// 不允許在原始碼任何地方再讀 os.Getenv，全部走這裡。
+// Nothing else in the codebase should call os.Getenv directly; everything
+// must go through this package.
 package config
 
 import (
@@ -10,48 +11,50 @@ import (
 	"strings"
 )
 
-// Config 應用程式設定。所有欄位都應有合理預設值或在 Load 時驗證。
+// Config holds application settings. Every field must have a sensible default
+// or be validated inside Load.
 type Config struct {
-	// Env：staging / production / dev / preview-{n}
+	// Env: staging / production / dev / preview-{n}
 	Env string
 
-	// GCPProjectID：Firebase / Firestore / GCS（以及 Vertex AI 後端時）共用
+	// GCPProjectID: shared by Firebase / Firestore / GCS (and Vertex AI when used)
 	GCPProjectID string
 
-	// GCPRegion：Firestore / GCS / Vertex AI publisher endpoint，例：asia-east1
+	// GCPRegion: Firestore / GCS / Vertex AI publisher endpoint, e.g. asia-east1
 	GCPRegion string
 
-	// MetersBucket：電表照片 GCS bucket
+	// MetersBucket: GCS bucket holding meter photos
 	MetersBucket string
 
-	// Port：HTTP 監聽 port（Cloud Run 會帶 PORT；本地預設 8080）
+	// Port: HTTP listen port (Cloud Run injects PORT; defaults to 8080 locally)
 	Port string
 
-	// AllowedOrigins：CORS 白名單；以逗號分隔，"*" 代表全部（僅 dev 用）
+	// AllowedOrigins: CORS allowlist; comma-separated, "*" means everything (dev only)
 	AllowedOrigins []string
 
-	// AuthBypass：本地開發時跳過 ID token 驗證；正式環境必須為 false
+	// AuthBypass: skip ID-token verification during local dev; MUST be false in production
 	AuthBypass bool
 
-	// AuthBypassUID：AuthBypass=true 時用的假 uid
+	// AuthBypassUID: fake uid used when AuthBypass=true
 	AuthBypassUID string
 
-	// AIBackend："gemini"（預設，走 Google AI Studio 免費 tier）或 "vertex"
-	//（走 GCP Vertex AI，要錢、走 IAM；高用量 / 不想被拿去訓練資料時切過去）
+	// AIBackend: "gemini" (default, Google AI Studio free tier) or "vertex"
+	// (GCP Vertex AI; paid, IAM-based; pick this for high volume or to keep data
+	// out of training).
 	AIBackend string
 
-	// GeminiAPIKey：AIBackend="gemini" 時必填；從 https://aistudio.google.com/apikey 拿
+	// GeminiAPIKey: required when AIBackend="gemini"; obtain from https://aistudio.google.com/apikey
 	GeminiAPIKey string
 
-	// GeminiModel：要用的 Gemini 模型名，例：gemini-2.5-flash-lite
+	// GeminiModel: Gemini model name to use, e.g. gemini-2.5-flash-lite
 	GeminiModel string
 
-	// SentryDSN：可選；空字串代表不接 Sentry
+	// SentryDSN: optional; empty string means Sentry is disabled
 	SentryDSN string
 }
 
-// Load 讀取環境變數並回傳 Config。
-// 若必填欄位缺失，回傳 error 讓 main 直接 fatal。
+// Load reads environment variables and returns a Config.
+// Returns an error so main can fatal out when a required field is missing.
 func Load() (*Config, error) {
 	cfg := &Config{
 		Env:            envOr("APP_ENV", "dev"),
@@ -68,27 +71,27 @@ func Load() (*Config, error) {
 		SentryDSN:      os.Getenv("SENTRY_DSN"),
 	}
 
-	// AI backend 必須是 gemini 或 vertex
+	// AI backend must be either gemini or vertex
 	if cfg.AIBackend != "gemini" && cfg.AIBackend != "vertex" {
-		return nil, fmt.Errorf("AI_BACKEND 必須是 gemini 或 vertex，得到：%s", cfg.AIBackend)
+		return nil, fmt.Errorf("AI_BACKEND must be either gemini or vertex, got: %s", cfg.AIBackend)
 	}
 
-	// production 環境的硬性檢查
+	// Hard checks for production
 	if cfg.Env == "production" {
 		if cfg.AuthBypass {
-			return nil, fmt.Errorf("AUTH_BYPASS=true 不允許在 production 啟用")
+			return nil, fmt.Errorf("AUTH_BYPASS=true is not allowed in production")
 		}
 		if contains(cfg.AllowedOrigins, "*") {
-			return nil, fmt.Errorf("ALLOWED_ORIGINS=* 不允許在 production 啟用")
+			return nil, fmt.Errorf("ALLOWED_ORIGINS=* is not allowed in production")
 		}
 		if cfg.AIBackend == "gemini" && cfg.GeminiAPIKey == "" {
-			return nil, fmt.Errorf("AI_BACKEND=gemini 需要 GEMINI_API_KEY（請從 Google AI Studio 申請）")
+			return nil, fmt.Errorf("AI_BACKEND=gemini requires GEMINI_API_KEY (apply via Google AI Studio)")
 		}
 	}
 
-	// 必填欄位
+	// Required fields
 	if cfg.GCPProjectID == "" && !cfg.AuthBypass {
-		return nil, fmt.Errorf("GCP_PROJECT_ID 必填（或設 AUTH_BYPASS=true 跑本地測試）")
+		return nil, fmt.Errorf("GCP_PROJECT_ID is required (or set AUTH_BYPASS=true for local testing)")
 	}
 
 	slog.Info("config loaded",

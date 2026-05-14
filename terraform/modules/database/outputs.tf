@@ -1,5 +1,5 @@
 output "database_name" {
-  description = "Firestore database 名稱（永遠是 (default)）"
+  description = "Firestore database name (always (default))"
   value       = google_firestore_database.default.name
 }
 

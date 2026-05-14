@@ -1,9 +1,9 @@
-# ──────────────────────────────────────────────────────────────────────────
-# Frontend OTA Update（推 EAS Update，使用者下次開 App 自動拉新版 JS）
+# ----------------------------------------------------------------------
+# Frontend OTA Update (push EAS Update; users pick up the new JS on next launch)
 #
-# 適用：JS-only 改動（不改 native 模組／不升級 Expo SDK）
-# 觸發：push to main 且改了 frontend/wattrent/app|components|services|lib|locales
-# ──────────────────────────────────────────────────────────────────────────
+# When to use: JS-only changes (no native module changes, no Expo SDK upgrade)
+# Trigger: push to main with changes under frontend/wattrent/app|components|services|lib|locales
+# ----------------------------------------------------------------------
 
 name: Frontend Update (EAS OTA)
 
@@ -23,11 +23,11 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "EAS Update branch (production 暫時鎖住，發表前才開)"
+        description: "EAS Update branch (production temporarily locked; will reopen before launch)"
         required: true
         default: staging
         type: choice
-        options: [staging, preview] # 要開 prod 請加回 production
+        options: [staging, preview] # To enable prod, add `production` back
 
 concurrency:
   group: frontend-update-${{ github.event.inputs.branch || 'staging' }}
@@ -56,7 +56,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/wattrent/package-lock.json
 
-      - uses: expo/expo-github-action@v8 # v8 是最新 stable（仍 Node 20，上游未釋 v9）
+      - uses: expo/expo-github-action@v8 # v8 is the latest stable (still on Node 20; upstream has not released v9)
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}

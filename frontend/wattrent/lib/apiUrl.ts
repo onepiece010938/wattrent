@@ -1,14 +1,15 @@
-// 統一決定 API base URL，避免散落在多個 service 檔。
+// Centralised API base URL resolution so it does not get scattered across services.
 //
-// 解析順序：
-//  1. process.env.EXPO_PUBLIC_API_URL（build-time env，最高優先）
-//  2. Constants.expoConfig.extra.apiUrl（app.config.js 設的 runtime config）
-//  3. __DEV__ + web → http://localhost:8080/api/v1
-//  4. __DEV__ + native → 從 Metro 的 hostUri 推 LAN IP → http://<lan>:8080/api/v1
-//     （對應「實機 Expo Go 跟筆電在同 WiFi」的情境，不必再硬寫 192.168.x.x）
-//  5. fallback → staging Cloud Run
+// Resolution order:
+//  1. process.env.EXPO_PUBLIC_API_URL (build-time env, highest priority)
+//  2. Constants.expoConfig.extra.apiUrl (runtime config from app.config.js)
+//  3. __DEV__ + web -> http://localhost:8080/api/v1
+//  4. __DEV__ + native -> derive LAN IP from Metro hostUri -> http://<lan>:8080/api/v1
+//     (covers the "physical phone running Expo Go on the same WiFi as the laptop"
+//     scenario without hard-coding 192.168.x.x)
+//  5. fallback -> staging Cloud Run
 //
-// 要切到別的 backend：跑 frontend 前 `$env:EXPO_PUBLIC_API_URL='https://...'`。
+// To switch backends: `$env:EXPO_PUBLIC_API_URL='https://...'` before running the frontend.
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 

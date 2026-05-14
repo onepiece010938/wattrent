@@ -4,6 +4,6 @@ variable "project_id" {
 }
 
 variable "apis" {
-  description = "要啟用的 API 名稱清單"
+  description = "List of API names to enable"
   type        = list(string)
 }

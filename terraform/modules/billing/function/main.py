@@ -1,10 +1,11 @@
 """
 Budget kill-switch.
 
-收到 Pub/Sub budget alert → 若實際花費 >= 預算，呼叫 Cloud Billing API
-取消 project 的 billing account，所有付費服務立即停止。
+On receiving a Pub/Sub budget alert, if actual spend >= budget, call the
+Cloud Billing API to unset the project's billing account; all paid services
+then stop immediately.
 
-reference: https://cloud.google.com/billing/docs/how-to/disable-billing-with-notifications
+Reference: https://cloud.google.com/billing/docs/how-to/disable-billing-with-notifications
 """
 
 from __future__ import annotations

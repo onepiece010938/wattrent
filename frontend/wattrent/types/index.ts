@@ -1,15 +1,15 @@
-// 電表讀數記錄
+// Meter reading record.
 export interface MeterReading {
   id: string;
   userId?: string;
-  reading: number; // 電表度數
-  imageUrl?: string; // 電表照片 URL
+  reading: number; // meter reading (kWh)
+  imageUrl?: string; // meter photo URL
   createdAt: string;
-  previousReading?: number; // 上次讀數
-  usage?: number; // 本期用電度數
+  previousReading?: number; // previous reading
+  usage?: number; // usage for the current period
 }
 
-// OCR 結果（嵌入 Bill 內）
+// OCR result (embedded inside Bill).
 export interface BillOcrResult {
   confidence: number;
   model: string;
@@ -17,11 +17,11 @@ export interface BillOcrResult {
   processedAt: string;
 }
 
-// 帳單（與 backend models.Bill 對齊；userId 不回傳，由 token 決定）
+// Bill (mirrors backend models.Bill; userId is omitted, derived from token).
 export interface Bill {
   id: string;
-  period: string; // 帳單期間（YYYY-MM）
-  periodStart?: string; // 由後端產生的 ISO8601
+  period: string; // billing period (YYYY-MM)
+  periodStart?: string; // ISO8601 produced by the backend
   meterReading: number;
   previousReading: number;
   electricityUsage: number;
@@ -35,14 +35,14 @@ export interface Bill {
   createdAt: string;
   updatedAt?: string;
 
-  // 純客戶端欄位（generateBillMessage 用，不會 round-trip 到後端）
+  // Client-only fields (used by generateBillMessage; not round-tripped to the backend)
   message?: string;
-  // legacy / mock 用，未來移除
+  // legacy / mock; remove in the future
   userId?: string;
   meterReadingId?: string;
 }
 
-// 用戶設定（與 backend models.UserSettings 對齊；userId 由 token 決定）
+// User settings (mirrors backend models.UserSettings; userId is derived from token).
 export interface UserSettings {
   defaultElectricityRate: number;
   defaultRent: number;
@@ -54,11 +54,11 @@ export interface UserSettings {
   autoBackup?: boolean;
   updatedAt?: string;
 
-  // legacy；舊頁面還在用，未來會移除
+  // legacy; still used by old screens, remove in the future
   userId?: string;
 }
 
-// API 回應格式
+// Unified API response envelope.
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;
@@ -66,7 +66,7 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
-// OCR 結果（/ocr/process 回傳）
+// OCR result returned by /ocr/process.
 export interface OCRResult {
   reading: number;
   confidence: number;

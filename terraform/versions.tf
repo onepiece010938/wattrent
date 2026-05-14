@@ -1,9 +1,9 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Terraform & Provider 版本鎖定
+# Terraform & provider version pinning
 #
-# Terraform 版本：1.10+（支援 cloud{} workspaces 的 key:value tags；
-#                       1.9+ 仍有 import block / check block。CI 用 1.15.x）
-# OpenTofu 1.8+ 也可使用（key:value tags 在 OpenTofu 1.8 跟進）
+# Terraform: 1.10+ (needed for key:value tags in cloud{} workspaces;
+#                   1.9+ already had import/check blocks. CI uses 1.15.x)
+# OpenTofu 1.8+ also works (key:value tags landed in OpenTofu 1.8).
 # ─────────────────────────────────────────────────────────────────────────
 
 terraform {

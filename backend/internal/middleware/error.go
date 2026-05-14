@@ -12,11 +12,11 @@ import (
 	"wattrent/internal/models"
 )
 
-// AppError 業務層用的錯誤型別。
+// AppError is the business-layer error type.
 //
-// HTTPStatus：對應的 HTTP status code
-// Key：i18n key（前端翻譯）
-// Cause：原始錯誤（不會暴露給 client，只進 log）
+// HTTPStatus: HTTP status code to return
+// Key:        i18n key (translated by the frontend)
+// Cause:      original error (NEVER exposed to the client; only logged)
 type AppError struct {
 	HTTPStatus int
 	Key        string
@@ -32,7 +32,7 @@ func (e *AppError) Error() string {
 
 func (e *AppError) Unwrap() error { return e.Cause }
 
-// 預設錯誤型別。i18n key 全部 dot-separated。
+// Default error variants. Every i18n key is dot-separated.
 var (
 	ErrNotFound       = &AppError{HTTPStatus: http.StatusNotFound, Key: "errors.not_found"}
 	ErrBadRequest     = &AppError{HTTPStatus: http.StatusBadRequest, Key: "errors.bad_request"}
@@ -41,13 +41,13 @@ var (
 	ErrUpstreamFailed = &AppError{HTTPStatus: http.StatusBadGateway, Key: "errors.upstream_failed"}
 )
 
-// ErrorHandler 統一處理 c.Error() 推進來的錯誤。
+// ErrorHandler centralises handling of errors pushed via c.Error().
 //
-// 處理順序：
-//  1. AppError → 用內含的 status / key
-//  2. gRPC NotFound → ErrNotFound
-//  3. gin bind error → ErrBadRequest
-//  4. 其他 → ErrInternal
+// Mapping order:
+//  1. AppError -> use the embedded status / key
+//  2. gRPC NotFound -> ErrNotFound
+//  3. gin bind error -> ErrBadRequest
+//  4. anything else -> ErrInternal
 func ErrorHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Next()
@@ -59,7 +59,7 @@ func ErrorHandler() gin.HandlerFunc {
 		err := c.Errors.Last().Err
 		appErr := mapError(err)
 
-		// log 完整 cause（不送到 client）
+		// Log the full cause (never sent to the client)
 		slog.Error("request failed",
 			"path", c.Request.URL.Path,
 			"method", c.Request.Method,

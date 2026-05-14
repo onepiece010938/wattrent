@@ -4,13 +4,13 @@ variable "project_id" {
 }
 
 variable "github_repository" {
-  description = "GitHub repo（owner/repo）；空字串會跳過 WIF binding"
+  description = "GitHub repo (owner/repo); empty string skips the WIF binding"
   type        = string
   default     = ""
 }
 
 variable "cloud_run_service_name" {
-  description = "要授權部署的 Cloud Run service 名稱（保留給未來縮窄權限用）"
+  description = "Cloud Run service name to authorize for deployment (reserved for future least-privilege scoping)"
   type        = string
 }
 
@@ -20,11 +20,11 @@ variable "cloud_run_location" {
 }
 
 variable "meters_bucket" {
-  description = "電表照片 bucket 名稱（保留給未來縮窄權限用）"
+  description = "Meter photo bucket name (reserved for future least-privilege scoping)"
   type        = string
 }
 
 variable "artifact_registry_repo" {
-  description = "Artifact Registry repository（保留給未來縮窄權限用）"
+  description = "Artifact Registry repository (reserved for future least-privilege scoping)"
   type        = string
 }

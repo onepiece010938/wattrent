@@ -9,7 +9,7 @@ variable "region" {
 }
 
 variable "service_name" {
-  description = "Cloud Run service 名稱"
+  description = "Cloud Run service name"
   type        = string
 }
 
@@ -19,65 +19,65 @@ variable "image" {
 }
 
 variable "min_instances" {
-  description = "最小執行個體數（0 = scale-to-zero）"
+  description = "Minimum number of instances (0 = scale-to-zero)"
   type        = number
   default     = 0
 }
 
 variable "max_instances" {
-  description = "最大執行個體數"
+  description = "Maximum number of instances"
   type        = number
   default     = 10
 }
 
 variable "cpu" {
-  description = "Cloud Run vCPU 配額"
+  description = "Cloud Run vCPU allocation"
   type        = string
   default     = "1"
 }
 
 variable "memory" {
-  description = "Cloud Run 記憶體配額"
+  description = "Cloud Run memory allocation"
   type        = string
   default     = "512Mi"
 }
 
 variable "env" {
-  description = "環境名稱（傳給 container 當 APP_ENV）"
+  description = "Environment name (passed to the container as APP_ENV)"
   type        = string
 }
 
 variable "api_fqdn" {
-  description = "API 自訂網域（給 domain mapping 用）；空字串代表不設"
+  description = "API custom domain (used by domain mapping); empty string means none"
   type        = string
   default     = ""
 }
 
 variable "meters_bucket" {
-  description = "電表照片 GCS bucket 名稱"
+  description = "GCS bucket name for meter photos"
   type        = string
 }
 
 variable "sentry_dsn_secret" {
-  description = "Sentry DSN 在 Secret Manager 的 secret ID；空字串代表不掛載"
+  description = "Secret ID of the Sentry DSN in Secret Manager; empty string skips the mount"
   type        = string
   default     = ""
 }
 
 variable "ai_backend" {
-  description = "AI 後端：gemini（AI Studio API key）或 vertex（Vertex AI，走 IAM）"
+  description = "AI backend: gemini (AI Studio API key) or vertex (Vertex AI, IAM-based)"
   type        = string
   default     = "gemini"
 }
 
 variable "gemini_model" {
-  description = "Gemini 模型名"
+  description = "Gemini model name"
   type        = string
   default     = "gemini-2.5-flash-lite"
 }
 
 variable "labels" {
-  description = "資源 labels"
+  description = "Resource labels"
   type        = map(string)
   default     = {}
 }

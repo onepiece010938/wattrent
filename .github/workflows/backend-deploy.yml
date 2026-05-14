@@ -1,9 +1,9 @@
-# ──────────────────────────────────────────────────────────────────────────
-# Backend Deploy: 推 image 到 Artifact Registry → 部署 Cloud Run
+# ----------------------------------------------------------------------
+# Backend Deploy: push image to Artifact Registry -> deploy Cloud Run
 #
-# 觸發：push to main 且改了 backend/ 或 Dockerfile
-# 認證：Workload Identity Federation（OIDC，無 long-lived key）
-# ──────────────────────────────────────────────────────────────────────────
+# Trigger: push to main with changes under backend/ or Dockerfile
+# Auth: Workload Identity Federation (OIDC, no long-lived key)
+# ----------------------------------------------------------------------
 
 name: Backend Deploy
 
@@ -16,11 +16,11 @@ on:
   workflow_dispatch:
     inputs:
       env:
-        description: "Target environment (production 暫時鎖住，發表前才開)"
+        description: "Target environment (production temporarily locked; will reopen before launch)"
         required: true
         default: staging
         type: choice
-        options: [staging] # 要開 prod 請加回 production
+        options: [staging] # To enable prod, add `production` back
 
 concurrency:
   group: backend-deploy-${{ github.event.inputs.env || 'staging' }}

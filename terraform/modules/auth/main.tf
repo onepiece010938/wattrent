@@ -1,12 +1,13 @@
-# ──────────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # auth: Identity Platform
 #
-# Identity Platform = GCP 版的 Firebase Auth，但 SLA 更明確、有 multi-tenancy。
-# 50k MAU 免費；超過 $0.0055 / MAU。
+# Identity Platform is the GCP-flavored Firebase Auth, with a more explicit
+# SLA and built-in multi-tenancy.
+# 50k MAU is free; beyond that it is $0.0055 / MAU.
 #
-# OAuth provider（Google / Apple / Facebook）需在 console UI 開啟
-# 並貼 client_id / client_secret，Terraform 暫不管理。
-# ──────────────────────────────────────────────────────────────────────────
+# OAuth providers (Google / Apple / Facebook) must be enabled in the console
+# UI by pasting client_id / client_secret; Terraform does not manage them yet.
+# ----------------------------------------------------------------------
 
 resource "google_identity_platform_config" "default" {
   project = var.project_id

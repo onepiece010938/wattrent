@@ -9,12 +9,13 @@ import (
 	"cloud.google.com/go/storage"
 )
 
-// StorageService 處理電表照片：簽名上傳 / 簽名下載。
+// StorageService handles meter photos: signed upload / signed download.
 //
-// 路徑慣例：users/{uid}/bills/{billId}.jpg（不含副檔名延伸；副檔名由 contentType 決定）。
+// Path convention: users/{uid}/bills/{billId}.{ext} (the extension comes from contentType).
 //
-// 簽名靠 IAM Credentials API（signBlob）；要求執行身份的 SA 對自己有
-// roles/iam.serviceAccountTokenCreator（Terraform 已設定）。
+// Signing relies on the IAM Credentials API (signBlob); the running service
+// account must have roles/iam.serviceAccountTokenCreator on itself (Terraform
+// already handles this).
 type StorageService struct {
 	client     *storage.Client
 	bucketName string
@@ -27,12 +28,12 @@ func NewStorageService(client *storage.Client, bucketName string) *StorageServic
 	}
 }
 
-// SignedUploadURL 產生 PUT 簽名 URL，前端可直接 PUT 圖片進去。
+// SignedUploadURL produces a PUT signed URL the frontend can PUT the image to directly.
 //
-// 限制：
-//   - contentType 限定 image/jpeg / image/png / image/webp
-//   - 有效時間：15 分鐘
-//   - 只允許寫入 users/{uid}/bills/{billId}.{ext}
+// Constraints:
+//   - contentType is restricted to image/jpeg / image/png / image/webp
+//   - Validity: 15 minutes
+//   - Only writes to users/{uid}/bills/{billId}.{ext} are allowed
 func (s *StorageService) SignedUploadURL(ctx context.Context, uid, billID, contentType string) (uploadURL, gcsPath string, expiresAt time.Time, err error) {
 	ext, ok := imageExt(contentType)
 	if !ok {
@@ -58,7 +59,7 @@ func (s *StorageService) SignedUploadURL(ctx context.Context, uid, billID, conte
 	return url, gcsPath, expiresAt, nil
 }
 
-// SignedDownloadURL 從 gs:// 路徑換成可直接 GET 的簽名 URL。
+// SignedDownloadURL converts a gs:// path into a directly-GETable signed URL.
 func (s *StorageService) SignedDownloadURL(ctx context.Context, gcsPath string) (string, time.Time, error) {
 	bucket, object, err := parseGCSPath(gcsPath, s.bucketName)
 	if err != nil {
@@ -77,9 +78,10 @@ func (s *StorageService) SignedDownloadURL(ctx context.Context, gcsPath string) 
 	return url, expiresAt, nil
 }
 
-// DownloadObject 依 gs:// 路徑下載物件 bytes。主要讓 OCR service 拿到圖片原始
-// 數據送給 Gemini Developer API（不能直接讀 gs://）。同時回傳 contentType，用來送
-// MIME header。
+// DownloadObject downloads the bytes of an object from a gs:// path. Used
+// mainly so the OCR service can hand the raw image to the Gemini Developer
+// API (which cannot read gs:// directly). Also returns the contentType for
+// the MIME header.
 func (s *StorageService) DownloadObject(ctx context.Context, gcsPath string) (data []byte, contentType string, err error) {
 	bucket, object, err := parseGCSPath(gcsPath, s.bucketName)
 	if err != nil {
@@ -109,7 +111,7 @@ func (s *StorageService) DownloadObject(ctx context.Context, gcsPath string) (da
 	return data, contentType, nil
 }
 
-// ─────────────── helpers ───────────────
+// --------------- helpers ---------------
 
 func imageExt(contentType string) (string, bool) {
 	switch contentType {

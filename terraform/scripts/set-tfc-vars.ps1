@@ -1,54 +1,56 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-  在 HCP Terraform Cloud (TFC) 一次寫入指定 workspace 的所有變數（idempotent）。
+  Idempotently write all variables for a given HCP Terraform Cloud (TFC) workspace.
 
 .DESCRIPTION
-  搭配 bootstrap.ps1 之後使用：bootstrap 在 GCP 端建好 WIF / SA，
-  本腳本則把對應的「Environment 變數」與「Terraform 變數」塞進 TFC workspace。
+  Use this together with bootstrap.ps1: bootstrap stands up WIF / SA on the GCP
+  side, and this script pushes the corresponding 'Environment variables' and
+  'Terraform variables' onto the TFC workspace.
 
-  - 自動從 ~/.terraform.d/credentials.tfrc.json 讀取 TFC API token，
-    或者吃 -Token 參數 / $env:TFC_TOKEN。
-  - 若變數已存在就 PATCH 更新，不存在就 POST 建立。
-  - sensitive 變數一旦在 TFC 上是 sensitive，TFC 不回傳它的值，
-    本腳本仍會發 PATCH 覆蓋寫入新值（這是預期行為）。
+  - Reads the TFC API token from ~/.terraform.d/credentials.tfrc.json by default,
+    or from the -Token parameter / $env:TFC_TOKEN.
+  - PATCHes existing variables, POSTs new ones.
+  - For sensitive variables, TFC does not return their value once they are
+    marked sensitive; this script still issues PATCH to overwrite the value
+    (this is intentional).
 
 .PARAMETER Organization
-  TFC 組織名（例：wattrent）
+  TFC organization name (e.g. wattrent)
 
 .PARAMETER Workspace
-  TFC workspace 名（例：wattrent-staging）
+  TFC workspace name (e.g. wattrent-staging)
 
 .PARAMETER GcpProjectId
-  GCP project ID（例：wattrent-staging）
+  GCP project ID (e.g. wattrent-staging)
 
 .PARAMETER GcpProjectNumber
-  GCP project number（純數字，bootstrap.ps1 結尾會印）
+  GCP project number (digits only; printed at the end of bootstrap.ps1)
 
 .PARAMETER GcpBillingAccount
-  Billing account ID，格式 XXXXXX-XXXXXX-XXXXXX（會以 sensitive 寫入）
+  Billing account ID (XXXXXX-XXXXXX-XXXXXX); written as a sensitive value.
 
 .PARAMETER GcpSaEmail
-  TFC runner SA email（例：tfc-runner@wattrent-staging.iam.gserviceaccount.com）
+  TFC runner SA email (e.g. tfc-runner@wattrent-staging.iam.gserviceaccount.com)
 
 .PARAMETER WorkloadPoolId
-  WIF Pool ID（預設 tfc-pool）
+  WIF Pool ID (default tfc-pool)
 
 .PARAMETER WorkloadProviderId
-  WIF Provider ID（預設 tfc-provider）
+  WIF Provider ID (default tfc-provider)
 
 .PARAMETER Token
-  TFC API token；不給就嘗試從 credentials.tfrc.json 讀。
+  TFC API token; if omitted, attempts to read it from credentials.tfrc.json.
 
 .PARAMETER TfcHost
-  TFC host，預設 app.terraform.io。
+  TFC host; defaults to app.terraform.io.
 
 .EXAMPLE
   .\set-tfc-vars.ps1 `
     -Organization "wattrent" `
     -Workspace "wattrent-staging" `
     -GcpProjectId "wattrent-staging" `
-    -GcpProjectNumber "<bootstrap.ps1 結尾印的 project number>" `
+    -GcpProjectNumber "<project number printed at the end of bootstrap.ps1>" `
     -GcpBillingAccount "XXXXXX-XXXXXX-XXXXXX" `
     -GcpSaEmail "tfc-runner@wattrent-staging.iam.gserviceaccount.com"
 #>
@@ -74,7 +76,7 @@ function Done($msg) { Write-Host "    $msg" -ForegroundColor Green }
 function Info($msg) { Write-Host "    $msg" -ForegroundColor DarkGray }
 function Warn($msg) { Write-Host "    $msg" -ForegroundColor Yellow }
 
-# ── 1. 取得 token ────────────────────────────────────────────────
+# -- 1. Resolve token ------------------------------------------------
 if (-not $Token) { $Token = $env:TFC_TOKEN }
 if (-not $Token) {
   $credPath = Join-Path $env:APPDATA "terraform.d\credentials.tfrc.json"
@@ -83,15 +85,15 @@ if (-not $Token) {
       $cred = Get-Content $credPath -Raw -Encoding UTF8 | ConvertFrom-Json
       $Token = $cred.credentials.$TfcHost.token
     } catch {
-      Warn "讀取 $credPath 失敗：$($_.Exception.Message)"
+      Warn "Failed to read $credPath: $($_.Exception.Message)"
     }
   }
 }
 if (-not $Token) {
-  throw "找不到 TFC API token。請先 ``terraform login`` 或傳 -Token / 設 \$env:TFC_TOKEN。"
+  throw "Could not locate a TFC API token. Run ``terraform login`` first, or pass -Token / set \$env:TFC_TOKEN."
 }
 
-# ── 2. 共用 HTTP helper ──────────────────────────────────────────
+# -- 2. Shared HTTP helper -------------------------------------------
 $baseUrl = "https://$TfcHost/api/v2"
 $headers = @{
   "Authorization" = "Bearer $Token"
@@ -126,24 +128,24 @@ function Invoke-Tfc {
   }
 }
 
-# ── 3. 找 workspace id ───────────────────────────────────────────
-Step "查詢 workspace：$Organization/$Workspace"
+# -- 3. Look up the workspace id -------------------------------------
+Step "Look up workspace: $Organization/$Workspace"
 $ws = Invoke-Tfc -Method GET -Path "/organizations/$Organization/workspaces/$Workspace"
 $workspaceId = $ws.data.id
 Done "workspace id = $workspaceId"
 
-# ── 4. 列出現有變數 ──────────────────────────────────────────────
-Step "列出 workspace 既有變數"
+# -- 4. List existing variables --------------------------------------
+Step "List existing variables on the workspace"
 $existing = Invoke-Tfc -Method GET -Path "/workspaces/$workspaceId/vars"
 $existingMap = @{}
 foreach ($v in $existing.data) {
   $key = "$($v.attributes.category):$($v.attributes.key)"
   $existingMap[$key] = $v.id
 }
-Done "目前共 $($existing.data.Count) 個變數"
+Done "$($existing.data.Count) variables currently exist"
 
-# ── 5. 定義要寫入的變數 ──────────────────────────────────────────
-# category: env (環境變數) 或 terraform (Terraform variable)
+# -- 5. Define the variables to upsert -------------------------------
+# category: env (environment variable) or terraform (Terraform variable)
 $desired = @(
   @{ key="TFC_GCP_PROVIDER_AUTH";             value="true";                 category="env";       sensitive=$false; description="Enable TFC dynamic GCP credentials" },
   @{ key="TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL"; value=$GcpSaEmail;            category="env";       sensitive=$false; description="SA that TFC impersonates via WIF" },
@@ -154,7 +156,7 @@ $desired = @(
   @{ key="gcp_billing_account";               value=$GcpBillingAccount;     category="terraform"; sensitive=$true;  description="GCP billing account id"; hcl=$false }
 )
 
-# ── 6. Upsert ────────────────────────────────────────────────────
+# -- 6. Upsert -------------------------------------------------------
 foreach ($v in $desired) {
   $mapKey = "$($v.category):$($v.key)"
   $attrs = @{
@@ -167,24 +169,24 @@ foreach ($v in $desired) {
   }
   if ($existingMap.ContainsKey($mapKey)) {
     $varId = $existingMap[$mapKey]
-    Step "更新變數：[$($v.category)] $($v.key)"
+    Step "Update variable: [$($v.category)] $($v.key)"
     $body = @{ data = @{ id = $varId; type = "vars"; attributes = $attrs } }
     Invoke-Tfc -Method PATCH -Path "/workspaces/$workspaceId/vars/$varId" -Body $body | Out-Null
-    Done "已更新"
+    Done "Updated"
   } else {
-    Step "建立變數：[$($v.category)] $($v.key)"
+    Step "Create variable: [$($v.category)] $($v.key)"
     $body = @{ data = @{ type = "vars"; attributes = $attrs } }
     Invoke-Tfc -Method POST -Path "/workspaces/$workspaceId/vars" -Body $body | Out-Null
-    Done "已建立"
+    Done "Created"
   }
 }
 
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host " 完成！workspace $Organization/$Workspace 變數已就緒" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "===================================================================" -ForegroundColor Green
+Write-Host " Done! Variables for workspace $Organization/$Workspace are ready." -ForegroundColor Green
+Write-Host "===================================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host " 接下來可以跑："
+Write-Host " Next, you can run:"
 Write-Host "   cd terraform"
 Write-Host "   `$env:TF_WORKSPACE = `"$Workspace`""
 Write-Host "   terraform init"

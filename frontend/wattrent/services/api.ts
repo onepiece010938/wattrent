@@ -1,5 +1,6 @@
 import { ApiResponse, Bill, OCRResult } from '@/types';
 import { resolveApiUrl } from '@/lib/apiUrl';
+import i18n from '@/lib/i18n';
 
 const API_BASE_URL = resolveApiUrl();
 
@@ -19,7 +20,7 @@ export interface SignedUploadResult {
 }
 
 class ApiService {
-  /** 之後接 Firebase Auth 後改成從 token 拿 */
+  /** Will be replaced with a Firebase Auth token provider once auth is wired in. */
   private authTokenProvider: (() => Promise<string | null>) | null = null;
 
   setAuthTokenProvider(provider: () => Promise<string | null>) {
@@ -54,7 +55,7 @@ class ApiService {
     } catch (err) {
       if (err instanceof TypeError) {
         throw new Error(
-          `無法連線到後端 (${API_BASE_URL})：請確認 backend 已啟動，且手機與電腦在同一網路。`,
+          i18n.t('errors.backend.unreachable', { url: API_BASE_URL }),
         );
       }
       throw err;
@@ -64,7 +65,7 @@ class ApiService {
     try {
       data = (await response.json()) as ApiResponse<T>;
     } catch {
-      throw new Error(`HTTP ${response.status}: 無法解析回應`);
+      throw new Error(i18n.t('errors.backend.parseFailed', { status: response.status }));
     }
 
     if (!response.ok || data.success === false) {
@@ -73,7 +74,7 @@ class ApiService {
     return data;
   }
 
-  // OCR 相關
+  // OCR
   async processImage(input: { imageBase64?: string; imageUrl?: string }): Promise<OCRResult> {
     const response = await this.request<OCRResult>('/ocr/process', {
       method: 'POST',
@@ -91,7 +92,7 @@ class ApiService {
     return response.data!;
   }
 
-  // 帳單相關
+  // Bills
   async createBill(payload: CreateBillPayload): Promise<Bill> {
     const response = await this.request<Bill>('/bills', {
       method: 'POST',
@@ -115,7 +116,7 @@ class ApiService {
     return response.data || null;
   }
 
-  /** 切付款狀態（true = 已匯款） */
+  /** Toggle payment status (true = paid). */
   async setPaymentStatus(id: string, paid: boolean): Promise<Bill> {
     const response = await this.request<Bill>(`/bills/${id}/payment`, {
       method: 'PUT',

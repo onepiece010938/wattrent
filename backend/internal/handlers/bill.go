@@ -1,8 +1,11 @@
-// Package handlers HTTP handler 層；負責 request/response，不包業務邏輯。
+// Package handlers is the HTTP handler layer; it deals with request/response
+// only and contains no business logic.
 //
-// 規範：
-//   - 用 c.Error(err) 推到 ErrorHandler middleware；不要自己寫 status code
-//   - userID 永遠來自 middleware.GetUID(c)；handler 不可以信任 query/path 的 userId
+// Conventions:
+//   - Push errors via c.Error(err) into the ErrorHandler middleware; do not
+//     write status codes here.
+//   - userID always comes from middleware.GetUID(c); a handler must NEVER
+//     trust a userId taken from the query string or path.
 package handlers
 
 import (

@@ -4,7 +4,7 @@ variable "project_id" {
 }
 
 variable "env" {
-  description = "環境名稱"
+  description = "Environment name"
   type        = string
 }
 

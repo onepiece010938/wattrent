@@ -28,7 +28,7 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Data: s})
 }
 
-// PUT /api/v1/settings  （整份覆寫）
+// PUT /api/v1/settings  (full overwrite)
 func (h *SettingsHandler) Save(c *gin.Context) {
 	var s models.UserSettings
 	if err := c.ShouldBindJSON(&s); err != nil {
@@ -46,7 +46,7 @@ func (h *SettingsHandler) Save(c *gin.Context) {
 	})
 }
 
-// PATCH /api/v1/settings  （局部更新）
+// PATCH /api/v1/settings  (partial update)
 func (h *SettingsHandler) Patch(c *gin.Context) {
 	var req models.UpdateSettingsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

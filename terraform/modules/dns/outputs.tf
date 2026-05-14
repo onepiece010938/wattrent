@@ -4,6 +4,6 @@ output "record_id" {
 }
 
 output "fqdn" {
-  description = "完整 FQDN"
+  description = "Full FQDN"
   value       = cloudflare_record.api.name
 }

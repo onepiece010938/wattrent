@@ -1,26 +1,29 @@
-// 帳單期間（period）格式工具。
+// Bill period formatting helpers.
 //
-// Backend 永遠用 "YYYY-MM" 字串（binding:"required,len=7"）。
-// 前端只在「顯示」時翻譯成本地化字串。
+// Backend always uses a "YYYY-MM" string (binding:"required,len=7").
+// The frontend only converts it to a localised string at display time.
+// Localised templates live in locales/{lang}.json under the "period.format" key.
+import i18n from './i18n';
 import type { SupportedLanguage } from './i18n';
 
-/** 取得當月的 period 字串（YYYY-MM） */
+/** Get the current month period string (YYYY-MM). */
 export function currentPeriod(now: Date = new Date()): string {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
 }
 
-/** 把 "YYYY-MM" 顯示成「2026年5月」/「May 2026」 */
+const ENGLISH_MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** Render a "YYYY-MM" string in the given language. */
 export function formatPeriod(period: string, lang: SupportedLanguage | string): string {
   if (!/^\d{4}-\d{2}$/.test(period)) return period;
-  const [y, m] = period.split('-');
-  const month = parseInt(m, 10);
-  if (lang === 'zh-TW') return `${y}年${month}月`;
-  // English
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
-  return `${monthNames[month - 1] ?? m} ${y}`;
+  const [y, mm] = period.split('-');
+  const monthNum = parseInt(mm, 10);
+  // For English, pass the spelled-out month name; for other languages pass the number.
+  const month = lang === 'en' ? (ENGLISH_MONTHS[monthNum - 1] ?? mm) : String(monthNum);
+  return i18n.t('period.format', { lng: lang, year: y, month });
 }

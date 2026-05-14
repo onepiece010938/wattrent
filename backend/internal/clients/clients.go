@@ -1,13 +1,13 @@
-// Package clients 集中管理對外的 GCP / Firebase / Gemini 連線。
+// Package clients centralises outbound connections to GCP / Firebase / Gemini.
 //
-// 設計原則：
-//   - 在 main.go 啟動時 Init 一次，傳給 services
-//   - 所有 client 都要 graceful close
-//   - GCP 認證走 Application Default Credentials（local: gcloud auth；
-//     Cloud Run: 自動帶 service account；CI: WIF）
-//   - Gemini 認證依 AI_BACKEND 切：
-//   - "gemini"（預設）走 Google AI Studio API key（免費 tier）
-//   - "vertex" 走 Vertex AI 共用上面的 ADC
+// Design principles:
+//   - Init once in main.go and inject into services.
+//   - Every client has a graceful Close.
+//   - GCP authentication uses Application Default Credentials
+//     (local: gcloud auth; Cloud Run: built-in service account; CI: WIF).
+//   - Gemini authentication depends on AI_BACKEND:
+//       "gemini" (default) -> Google AI Studio API key (free tier)
+//       "vertex"           -> Vertex AI, sharing the same ADC above
 package clients
 
 import (
@@ -24,7 +24,7 @@ import (
 	"wattrent/internal/config"
 )
 
-// Clients 所有外部 client 的集合
+// Clients is the bag of every external client.
 type Clients struct {
 	Firestore *firestore.Client
 	Storage   *storage.Client
@@ -32,12 +32,12 @@ type Clients struct {
 	Gemini    *genai.Client
 }
 
-// New 建立並初始化所有 client。
-// 任一失敗都會回 error，呼叫端應該直接 fatal。
+// New builds and initialises every client.
+// Any failure returns an error and the caller should fatal out.
 func New(ctx context.Context, cfg *config.Config) (*Clients, error) {
 	c := &Clients{}
 
-	// ─────── Firebase Admin SDK（auth） ───────
+	// ----- Firebase Admin SDK (auth) -----
 	app, err := firebase.NewApp(ctx, &firebase.Config{
 		ProjectID: cfg.GCPProjectID,
 	})
@@ -50,22 +50,23 @@ func New(ctx context.Context, cfg *config.Config) (*Clients, error) {
 		return nil, fmt.Errorf("init firebase auth: %w", err)
 	}
 
-	// ─────── Firestore ───────
+	// ----- Firestore -----
 	c.Firestore, err = firestore.NewClient(ctx, cfg.GCPProjectID)
 	if err != nil {
 		return nil, fmt.Errorf("init firestore: %w", err)
 	}
 
-	// ─────── Cloud Storage ───────
+	// ----- Cloud Storage -----
 	c.Storage, err = storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("init storage: %w", err)
 	}
 
-	// ─────── Gemini（AI Studio 或 Vertex AI） ───────
-	// 設計：fail-late。缺 key 只讓 OCR endpoint 回 503，不讓整個 backend 起不來
-	//（health check そう Sentry で alerts、生成迫使紬を邊不差りたい）。
-	// production+gemini 則 config.Load() 已在更上層 fail-fast。
+	// ----- Gemini (AI Studio or Vertex AI) -----
+	// Strategy: fail-late. A missing API key only causes the OCR endpoint to
+	// return 503; the whole backend still starts so health checks pass and
+	// Sentry can keep alerting on real failures. For production+gemini,
+	// config.Load() already fail-fasts higher up.
 	geminiCfg, skip, err := buildGeminiConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -84,16 +85,18 @@ func New(ctx context.Context, cfg *config.Config) (*Clients, error) {
 	return c, nil
 }
 
-// buildGeminiConfig 依設定選 Gemini Developer API（免費 tier）或 Vertex AI（要錢）。
+// buildGeminiConfig picks between the Gemini Developer API (free tier) and
+// Vertex AI (paid) based on configuration.
 //
-// 回備註：skip=true 表示必要設定不齊 → 該跳過初始化，讓 backend 還能起來。
+// Returned skip=true means a required setting is missing -> skip initialisation
+// so the backend can still come up.
 func buildGeminiConfig(cfg *config.Config) (cc *genai.ClientConfig, skip bool, err error) {
 	switch cfg.AIBackend {
 	case "gemini":
 		if cfg.GeminiAPIKey == "" {
-			// production 的 fail-fast 已在 config.Load 處理完。
-			// 其他现墔（staging / dev / preview）、適互偷懶、允許 backend 出來，
-			// OCR endpoint 才会帶顼 503。
+			// Production fail-fast is already handled in config.Load.
+			// In other environments (staging / dev / preview) we let the
+			// backend start anyway; only the OCR endpoint will return 503.
 			return nil, true, nil
 		}
 		return &genai.ClientConfig{
@@ -111,9 +114,10 @@ func buildGeminiConfig(cfg *config.Config) (cc *genai.ClientConfig, skip bool, e
 	}
 }
 
-// Close 關閉所有 client。
-// 即使其中一個失敗也會繼續關其他的，最後回第一個遇到的 error。
-// 注： google.golang.org/genai 的 Client 不需要 Close（只是 HTTP client 包裝）。
+// Close shuts every client down.
+// Even if one fails it keeps closing the rest, then returns the first error.
+// Note: the google.golang.org/genai Client has no Close (it is just an HTTP
+// client wrapper).
 func (c *Clients) Close() error {
 	var firstErr error
 	if c.Firestore != nil {

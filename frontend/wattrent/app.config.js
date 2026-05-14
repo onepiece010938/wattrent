@@ -8,9 +8,10 @@ export default {
     icon: "./assets/icon.png",
     userInterfaceStyle: "automatic",
     scheme: "wattrent",
-    // EAS Update 用：跟 native binary 綁定的版本，policy:"appVersion"
-    // 表示 runtimeVersion 自動跟 expo.version 對齊；改 native 模組或升 SDK 時
-    // 一定要 bump expo.version，否則 OTA 推下去舊 binary 會 crash。
+    // For EAS Update: this version is bound to the native binary, with policy:"appVersion".
+    // runtimeVersion is auto-aligned to expo.version; whenever you touch a native
+    // module or bump the SDK you MUST bump expo.version, otherwise OTA updates
+    // pushed to old binaries will crash.
     runtimeVersion: {
       policy: "appVersion"
     },
@@ -27,13 +28,13 @@ export default {
       [
         "expo-camera",
         {
-          cameraPermission: "允許 WattRent 使用相機來拍攝電表照片"
+          cameraPermission: "Allow WattRent to use the camera to take meter photos"
         }
       ],
       [
         "expo-image-picker",
         {
-          photosPermission: "允許 WattRent 存取相簿來選擇電表照片"
+          photosPermission: "Allow WattRent to access the photo library to pick meter photos"
         }
       ],
       [
@@ -49,8 +50,8 @@ export default {
     ios: {
       supportsTablet: true,
       infoPlist: {
-        NSCameraUsageDescription: "允許 WattRent 使用相機來拍攝電表照片",
-        NSPhotoLibraryUsageDescription: "允許 WattRent 存取相簿來選擇電表照片"
+        NSCameraUsageDescription: "Allow WattRent to use the camera to take meter photos",
+        NSPhotoLibraryUsageDescription: "Allow WattRent to access the photo library to pick meter photos"
       }
     },
     android: {
@@ -73,9 +74,9 @@ export default {
       typedRoutes: true
     },
     extra: {
-      // API URL 不再寫死。請需要時設環境變數：
+      // API URL is no longer hard-coded. Set the env var when needed:
       //   $env:EXPO_PUBLIC_API_URL='https://wattrent-api-xxxx.a.run.app/api/v1'
-      // 沒設的話 lib/apiUrl.ts 會自動選 dev/staging fallback。
+      // If unset, lib/apiUrl.ts auto-selects the dev/staging fallback.
       apiUrl: process.env.EXPO_PUBLIC_API_URL || null,
       eas: {
         projectId: "dc9a5284-10b5-47da-bc1c-053c36d08564"

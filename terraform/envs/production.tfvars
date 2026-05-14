@@ -1,9 +1,9 @@
 # ──────────────────────────────────────────────────────────────────────────
-# Production 環境
+# Production environment
 #
-# ⚠️ 本檔會進 git，請只放「非機密」設定。
-#    機密值（billing account / sentry / cloudflare token）走 TFC workspace
-#    variables，TFC 注入後優先級高於 tfvars。
+# ⚠️ This file is committed to git. Only put non-sensitive settings here.
+#    Sensitive values (billing account / sentry / cloudflare token) live in
+#    TFC workspace variables, which are injected with higher priority than tfvars.
 # ──────────────────────────────────────────────────────────────────────────
 
 env                  = "production"
@@ -11,18 +11,19 @@ gcp_project_id       = "wattrent-prod"
 gcp_region           = "asia-east1"
 gcp_storage_location = "ASIA-EAST1"
 
-# Billing account 由 TFC variable `gcp_billing_account`（sensitive）注入。
+# The billing account is injected via the TFC variable `gcp_billing_account` (sensitive).
 
-# 預算上限：一開始設小一點，上架有人用之後再調高。
-# 達到並不代表太多人用——也可能是被攻擊。先讓 kill switch 護你。
-# Billing account 幣別是 TWD，預算幣別必須一致
-billing_budget_amount       = 900 # TWD/月（約 USD 30）
+# Budget cap: start small and raise once the app is in real use.
+# Hitting it does not necessarily mean too many users — it could also mean abuse, so
+# let the kill switch protect you first.
+# The billing account currency is TWD, so the budget currency must match.
+billing_budget_amount       = 900 # TWD/month (~USD 30)
 billing_budget_currency     = "TWD"
 billing_alert_thresholds    = [0.5, 0.9]
 billing_kill_switch_enabled = true
 
-api_image         = "gcr.io/cloudrun/hello" # 首次佈署 placeholder；推出 stable image 後改成 asia-east1-docker.pkg.dev/wattrent-prod/wattrent/api:stable
-api_min_instances = 0                       # 起步先 scale-to-zero；流量穩定後可調 1
+api_image         = "gcr.io/cloudrun/hello" # First-deploy placeholder; switch to asia-east1-docker.pkg.dev/wattrent-prod/wattrent/api:stable once a stable image exists.
+api_min_instances = 0                       # Start with scale-to-zero; raise to 1 once traffic stabilises.
 api_max_instances = 20
 api_cpu           = "1"
 api_memory        = "512Mi"
@@ -30,7 +31,7 @@ api_memory        = "512Mi"
 # Domain
 domain_root        = "wattrent.app"
 api_subdomain      = "api"
-cloudflare_zone_id = "" # 從 Cloudflare dashboard 拿
+cloudflare_zone_id = "" # Grab from the Cloudflare dashboard.
 
 # Auth
 auth_authorized_domains = [

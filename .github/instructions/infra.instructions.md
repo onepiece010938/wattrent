@@ -1,85 +1,85 @@
 ---
 applyTo: "terraform/**"
-description: "WattRent IaC（Terraform + GCP + Cloudflare + Sentry）規範"
+description: "WattRent IaC (Terraform + GCP + Cloudflare + Sentry) guide"
 ---
 
-# Infra — Terraform 指南
+# Infra — Terraform guide
 
-> 此規則自動套用在 `terraform/**` 之下的所有檔案。
+> These rules auto-apply to every file under `terraform/**`.
 
-## 全貌
+## Overview
 
-* Provider：`hashicorp/google`、`hashicorp/google-beta`、`cloudflare/cloudflare`、`jianyuan/sentry`、`hashicorp/random`
-* Terraform 版本：`>= 1.10.0`（cloud{} workspaces 用 key:value tags 需要 1.10+；CI 跑 1.15.x；OpenTofu 1.8+ 也相容）
-* State：HCP Terraform Cloud（org `wattrent`）
-* 兩個 workspace：`wattrent-staging`、`wattrent-production`（皆掛 tag `app:wattrent` + 各自的 `env:` 區分）
-* 環境檔：`envs/staging.tfvars`、`envs/production.tfvars`
+* Providers: `hashicorp/google`, `hashicorp/google-beta`, `cloudflare/cloudflare`, `jianyuan/sentry`, `hashicorp/random`
+* Terraform version: `>= 1.10.0` (cloud{} workspaces with key:value tags require 1.10+; CI runs 1.15.x; OpenTofu 1.8+ also works)
+* State: HCP Terraform Cloud (org `wattrent`)
+* Two workspaces: `wattrent-staging`, `wattrent-production` (both tagged `app:wattrent` plus their own `env:` tag)
+* Env files: `envs/staging.tfvars`, `envs/production.tfvars`
 
-完整 bootstrap 步驟見 [terraform/README.md](../../terraform/README.md)。
+Full bootstrap steps live in [terraform/README.md](../../terraform/README.md).
 
-## 模組分工
+## Module breakdown
 
-| Module | 內容 |
+| Module | Contents |
 | --- | --- |
-| `project_services` | 啟用 GCP API（其他模組都依賴它） |
-| `database` | Firestore Native database（每個 project 只能有一個） |
-| `storage` | 電表照片 GCS bucket（single-region + lifecycle） |
-| `auth` | Identity Platform 設定 |
+| `project_services` | Enable GCP APIs (every other module depends on this) |
+| `database` | Firestore Native database (one per project) |
+| `storage` | Meter-photo GCS bucket (single-region + lifecycle) |
+| `auth` | Identity Platform config |
 | `api` | Cloud Run + runtime SA + Artifact Registry + IAM + domain mapping + Gemini API key Secret |
 | `cicd` | GitHub Actions Workload Identity Federation |
 | `dns` | Cloudflare DNS records |
-| `observability` | Sentry projects + Secret Manager（DSN） |
+| `observability` | Sentry projects + Secret Manager (DSN) |
 
-## 環境 / Secret
+## Env / secrets
 
-* `var.ai_backend`：`gemini`（預設、AI Studio API key）或 `vertex`（Vertex AI）。
-  * `gemini` 時 `api` module 會在 Secret Manager 建 `<service>-gemini-api-key` secret 容器；
-    實際金鑰請手動跑：
-    `gcloud secrets versions add wattrent-api-gemini-api-key --data-file=-` 並貼上 AI Studio key 內容。
-* Cloud Run env中 `AI_BACKEND` / `GEMINI_MODEL` 是明文；`GEMINI_API_KEY` 走 secret_key_ref。
+* `var.ai_backend`: `gemini` (default, AI Studio API key) or `vertex` (Vertex AI).
+  * When `gemini`, the `api` module creates an empty `<service>-gemini-api-key` Secret Manager container.
+    Push the actual key manually:
+    `gcloud secrets versions add wattrent-api-gemini-api-key --data-file=-` and paste your AI Studio key contents.
+* In the Cloud Run env block, `AI_BACKEND` / `GEMINI_MODEL` are plain text; `GEMINI_API_KEY` uses `secret_key_ref`.
 
-## 命名
+## Naming
 
-* GCP project：`wattrent-staging` / `wattrent-prod`（locals 自動推）
-* Region：`asia-east1`（彰化）
-* GCS bucket：`wattrent-meters-{env}`（single-region `ASIA-EAST1`）
-* Cloud Run service：`wattrent-api`
-* Artifact Registry repo：`wattrent`
-* Service account 後綴：`{service-name}-run` / `github-actions`
+* GCP project: `wattrent-staging` / `wattrent-prod` (locals derives this automatically)
+* Region: `asia-east1` (Changhua)
+* GCS bucket: `wattrent-meters-{env}` (single-region `ASIA-EAST1`)
+* Cloud Run service: `wattrent-api`
+* Artifact Registry repo: `wattrent`
+* Service-account suffixes: `{service-name}-run` / `github-actions`
 
-## 編寫慣例
+## Coding conventions
 
-* 所有 module 必有三個檔案：`main.tf`、`variables.tf`、`outputs.tf`。
-* 變數必填 `description`、`type`；optional 必填 `default`。
-* 命名一律 snake_case。
-* 標籤（labels）共用：`{ app, env, managed-by }`，由 root `locals.common_labels` 注入。
-* 跨 module 拿值用 `module.x.output_name`，**不要**直接 hard-code project ID。
-* 用 `count` 做 optional module（例：`var.enable_sentry ? 1 : 0`）；不要用 `for_each` 做 0/1 toggle。
+* Every module ships three files: `main.tf`, `variables.tf`, `outputs.tf`.
+* Every variable needs `description` and `type`; optional variables need `default`.
+* Use `snake_case` for everything.
+* Common labels (`{ app, env, managed-by }`) come from `locals.common_labels` at the root and are injected everywhere.
+* Cross-module references use `module.x.output_name`; **never** hard-code project IDs.
+* Use `count` for optional modules (e.g. `var.enable_sentry ? 1 : 0`); don't use `for_each` to fake a 0/1 toggle.
 
-## 安全 & 防呆
+## Safety & guardrails
 
-* Cloud Run image tag 由 CI 推；Terraform 用 `lifecycle.ignore_changes = [template[0].containers[0].image]` 避免互踩。
-* Firestore `delete_protection_state = "DELETE_PROTECTION_ENABLED"`，誤 destroy 不會刪資料。
-* GCS bucket：`uniform_bucket_level_access` + `public_access_prevention=enforced`，並關閉 versioning。
-* `disable_on_destroy = false`：移除模組不關 API（避免誤關別處用的服務）。
-* IAM：每個 service account 給最小權限；Cloud Run runtime SA **不能** 拿 `roles/owner`。
-* WIF attribute_condition 限定 repo（`assertion.repository == ...`），多一道防護。
+* The Cloud Run image tag is pushed by CI; Terraform uses `lifecycle.ignore_changes = [template[0].containers[0].image]` to avoid drift.
+* Firestore is created with `delete_protection_state = "DELETE_PROTECTION_ENABLED"`, so an accidental destroy will not wipe data.
+* GCS bucket: `uniform_bucket_level_access` + `public_access_prevention=enforced`, with versioning disabled.
+* `disable_on_destroy = false` on API enablement: removing a module never disables an API (other resources may still need it).
+* IAM: every service account is granted least privilege; the Cloud Run runtime SA must NEVER hold `roles/owner`.
+* WIF `attribute_condition` pins the GitHub repo (`assertion.repository == ...`) for an extra guardrail.
 
-## 不要做的事
+## Don't do this
 
-* ❌ 在 console UI 改任何資源（會被下次 apply 蓋回）。
-* ❌ 在 root `main.tf` 寫 inline resource；都包成 module。
-* ❌ 把 GCP service account JSON key 進 git；認證一律 ADC + WIF。
-* ❌ 在 `*.tfvars` 寫 secret；secret 用 HCP TFC 環境變數或 Secret Manager。
-* ❌ 改 `(default)` Firestore database 的 `location_id`（一旦建立不可變）。
-* ❌ 在 production 把 Cloud Run `ingress` 改 `INGRESS_TRAFFIC_INTERNAL_*` 而不接 LB（會打不到）。
-* ❌ 跳過 `terraform plan` 直接 apply；CI 會強制走 plan。
+* ❌ Edit any resource in the console UI (the next apply will overwrite it).
+* ❌ Write inline resources in the root `main.tf`; everything goes through a module.
+* ❌ Commit a GCP service-account JSON key; auth always uses ADC + WIF.
+* ❌ Put secrets in `*.tfvars`; secrets live in HCP TFC env vars or Secret Manager.
+* ❌ Change `location_id` on the `(default)` Firestore database (immutable once created).
+* ❌ Switch production Cloud Run `ingress` to `INGRESS_TRAFFIC_INTERNAL_*` without a load balancer (it will become unreachable).
+* ❌ Skip `terraform plan` and apply directly; CI enforces plan first.
 
-## 常用指令
+## Common commands
 
 ```powershell
 cd terraform
-terraform login                # 第一次：HCP TFC token
+terraform login                # First time: HCP TFC token
 terraform init
 terraform fmt -recursive
 terraform validate
@@ -89,20 +89,20 @@ terraform plan  -var-file="envs/staging.tfvars"
 terraform apply -var-file="envs/staging.tfvars"
 ```
 
-## 部署
+## Deploy
 
-* CI：[.github/workflows/infra.yml](../workflows/infra.yml)
-  * PR：自動 `terraform plan`，把 plan 貼到 PR comment
-  * push to main：自動 `terraform apply`
-  * 手動：`workflow_dispatch` 可選 env / action
-* 認證：Workload Identity Federation（OIDC，無 long-lived key）
+* CI: [.github/workflows/infra.yml](../workflows/infra.yml)
+  * PR: auto `terraform plan`, posts the plan as a PR comment
+  * push to main: auto `terraform apply`
+  * Manual: `workflow_dispatch` lets you pick env / action
+* Auth: Workload Identity Federation (OIDC; no long-lived keys)
 
-## 第一次 apply 雞生蛋問題
+## Bootstrap chicken-and-egg
 
-Terraform 不能管理「自己賴以運作的資源」，所以以下要先手動：
+Terraform cannot manage the resources it depends on, so the following must be created manually first:
 
-1. 建 GCP project + 開 billing
-2. 在 HCP TFC 建 organization 與 workspace
-3. 建一個 bootstrap service account（`roles/owner`）+ JSON key，貼進 HCP TFC 的 `GOOGLE_CREDENTIALS`
-4. 第一次 apply（會建出 GH Actions WIF SA）
-5. 把 `terraform output github_actions_*` 的值貼到 GitHub repo Secrets，之後 CI 接管
+1. Create a GCP project and enable billing.
+2. Create the HCP TFC organization and workspaces.
+3. Create a bootstrap service account with `roles/owner`, generate a JSON key, paste it into the HCP TFC `GOOGLE_CREDENTIALS` env var.
+4. Run the first apply (which creates the GitHub Actions WIF SA).
+5. Copy the values of `terraform output github_actions_*` into the GitHub repo Secrets — from then on CI takes over.

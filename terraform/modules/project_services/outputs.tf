@@ -1,4 +1,4 @@
 output "enabled_apis" {
-  description = "已啟用的 API"
+  description = "Enabled APIs"
   value       = [for s in google_project_service.this : s.service]
 }

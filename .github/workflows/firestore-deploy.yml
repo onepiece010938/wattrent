@@ -1,9 +1,9 @@
-# ──────────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # Firestore Deploy: rules + indexes
 #
-# 觸發：push to main 改了 firestore/
-# 不用 firebase login（serviceaccount 走 gcloud auth + GOOGLE_APPLICATION_CREDENTIALS）
-# ──────────────────────────────────────────────────────────────────────────
+# Trigger: push to main with changes under firestore/
+# No `firebase login` is needed (the service account flow goes through gcloud auth + GOOGLE_APPLICATION_CREDENTIALS).
+# ----------------------------------------------------------------------
 
 name: Firestore Deploy
 
@@ -17,11 +17,11 @@ on:
   workflow_dispatch:
     inputs:
       env:
-        description: "Target environment (production 暫時鎖住，發表前才開)"
+        description: "Target environment (production temporarily locked; will reopen before launch)"
         required: true
         default: staging
         type: choice
-        options: [staging] # 要開 prod 請加回 production
+        options: [staging] # To enable prod, add `production` back
 
 concurrency:
   group: firestore-deploy-${{ github.event.inputs.env || 'staging' }}

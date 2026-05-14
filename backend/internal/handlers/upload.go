@@ -20,13 +20,14 @@ func NewUploadHandler(storage *services.StorageService) *UploadHandler {
 
 // POST /api/v1/uploads/sign
 //
-// 給前端拿一個 PUT signed URL，直接把電表照片丟進 GCS。
+// Hand the frontend a PUT signed URL so it can upload the meter photo straight
+// to GCS.
 //
-// 流程：
-//  1. 前端先 POST {billId, contentType} 過來
-//  2. 後端回 {uploadUrl, gcsPath, expiresAt}
-//  3. 前端 PUT 圖片到 uploadUrl（HTTP body = binary）
-//  4. 前端 POST /bills 時帶 imageUrl=gcsPath
+// Flow:
+//  1. Frontend POSTs {billId, contentType} here.
+//  2. Backend returns {uploadUrl, gcsPath, expiresAt}.
+//  3. Frontend PUTs the image to uploadUrl (HTTP body = binary).
+//  4. Frontend POSTs /bills with imageUrl=gcsPath.
 func (h *UploadHandler) Sign(c *gin.Context) {
 	var req models.SignedUploadRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

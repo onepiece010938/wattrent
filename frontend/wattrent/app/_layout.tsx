@@ -25,14 +25,14 @@ export default function RootLayout() {
   const [i18nInitialized, setI18nInitialized] = useState(false);
 
   useEffect(() => {
-    // 初始化 i18n
+    // Initialise i18n
     const initializeI18n = async () => {
       try {
         await initI18n();
         setI18nInitialized(true);
       } catch (error) {
         console.error('Failed to initialize i18n:', error);
-        setI18nInitialized(true); // 即使失敗也要繼續，使用預設語言
+        setI18nInitialized(true); // Continue even on failure; fall back to default language
       }
     };
 
@@ -46,7 +46,7 @@ export default function RootLayout() {
   }, [loaded, i18nInitialized]);
 
   useEffect(() => {
-    // 設定Android導航欄
+    // Configure the Android navigation bar
     if (Platform.OS === 'android') {
       NavigationBar.setBackgroundColorAsync('#ffffff');
     }

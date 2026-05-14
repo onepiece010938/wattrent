@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────────
-# CI: 後端 + 前端 lint / test（每個 PR 必跑）
+# CI: backend + frontend lint / test (runs on every PR)
 # ──────────────────────────────────────────────────────────────────────────
 
 name: CI
@@ -10,7 +10,7 @@ on:
   push:
     branches: [main]
 
-# 同 PR 推新 commit 取消舊的 run
+# Cancel in-flight runs when a new commit is pushed to the same PR
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  # ────────────────────────── 後端 ──────────────────────────
+  # ------------------------- Backend -------------------------
   backend:
     name: Backend (Go)
     runs-on: ubuntu-latest
@@ -33,7 +33,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: "1.25"
-          check-latest: true # 取 1.25 系列最新 patch，不受 cache 鎖住
+          check-latest: true # Pull the latest 1.25 patch; do not be locked to the cache
           cache-dependency-path: backend/go.sum
 
       - name: Verify modules
@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           fmt_diff=$(gofmt -l .)
           if [ -n "$fmt_diff" ]; then
-            echo "::error::gofmt 未通過：$fmt_diff"
+            echo "::error::gofmt failed: $fmt_diff"
             exit 1
           fi
 
@@ -55,10 +55,10 @@ jobs:
         run: go test -race -coverprofile=coverage.out ./...
 
       - name: Build
-        # 只 build main package。`-o <file>` 不能配 `./...`（會跳 multi-package 錯）
+        # Build the main package only. `-o <file>` cannot be combined with `./...` (multi-package error).
         run: go build -o /tmp/wattrent-api .
 
-  # ────────────────────────── 前端 ──────────────────────────
+  # ------------------------- Frontend -------------------------
   frontend:
     name: Frontend (Expo)
     runs-on: ubuntu-latest

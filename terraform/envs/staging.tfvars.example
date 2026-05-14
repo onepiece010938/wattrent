@@ -1,11 +1,11 @@
-# 範本：複製成 envs/staging.local.tfvars 後填值（會被 .gitignore 忽略）
+# Template: copy to envs/staging.local.tfvars and fill in values (it is gitignored).
 #
-# 用法：
+# Usage:
 #   cp envs/staging.tfvars.example envs/staging.local.tfvars
-#   # 編輯 envs/staging.local.tfvars
+#   # edit envs/staging.local.tfvars
 #   terraform plan -var-file="envs/staging.tfvars" -var-file="envs/staging.local.tfvars"
 #
-# TFC remote runs 不需要這個檔；TFC workspace 上的 variables 會直接注入。
+# TFC remote runs do not need this file; the workspace variables on TFC are injected directly.
 
 gcp_billing_account   = "XXXXXX-XXXXXX-XXXXXX"
 # cloudflare_zone_id  = "..."

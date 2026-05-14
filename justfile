@@ -2,10 +2,10 @@
 # WattRent — local dev commands (Windows / PowerShell first)
 #
 # Quickstart:
-#   just bootstrap     第一次：裝依賴 + 建 backend/.env
-#   just backend       後端 :8080（air 熱重載，自動載 backend/.env）
-#   just frontend-web  前端 web → http://localhost:8081
-#   just frontend      前端 tunnel 給實機 Expo Go 掃 QR
+#   just bootstrap     First time: install deps + create backend/.env
+#   just backend       Backend on :8080 (air hot reload, auto-loads backend/.env)
+#   just frontend-web  Frontend web → http://localhost:8081
+#   just frontend      Frontend tunnel mode for a real device with Expo Go
 # ──────────────────────────────────────────────────────────────────────
 
 set shell := ["powershell", "-NoProfile", "-Command"]
@@ -20,16 +20,16 @@ help:
 
 # ────────────────────────── Setup ──────────────────────────
 
-# 第一次來：裝依賴 + 建 backend/.env（從 .env.example 複製）
+# First time: install deps + create backend/.env (copied from .env.example)
 bootstrap: install
-  if (-not (Test-Path "{{BACKEND_DIR}}\.env")) { Copy-Item "{{BACKEND_DIR}}\.env.example" "{{BACKEND_DIR}}\.env" ; Write-Host "✅ Created {{BACKEND_DIR}}\.env from .env.example" ; Write-Host "   👉 開啟它填 GEMINI_API_KEY（從 https://aistudio.google.com/apikey 拿）" } else { Write-Host "ℹ️  {{BACKEND_DIR}}\.env already exists, skip" }
+  if (-not (Test-Path "{{BACKEND_DIR}}\.env")) { Copy-Item "{{BACKEND_DIR}}\.env.example" "{{BACKEND_DIR}}\.env" ; Write-Host "Created {{BACKEND_DIR}}\.env from .env.example" ; Write-Host "   Open it and fill in GEMINI_API_KEY (get one from https://aistudio.google.com/apikey)" } else { Write-Host "{{BACKEND_DIR}}\.env already exists, skipping" }
   Write-Host ""
-  Write-Host "下一步："
-  Write-Host "  1) gcloud auth application-default login   # Firestore/GCS 用 ADC"
-  Write-Host "  2) just backend                            # 後端"
-  Write-Host "  3) just frontend-web (or just frontend)    # 前端"
+  Write-Host "Next steps:"
+  Write-Host "  1) gcloud auth application-default login   # Firestore/GCS use ADC"
+  Write-Host "  2) just backend                            # Backend"
+  Write-Host "  3) just frontend-web (or just frontend)    # Frontend"
 
-# 裝前後端依賴
+# Install backend + frontend dependencies
 install:
   Write-Host "==> Installing backend dependencies"
   Push-Location {{BACKEND_DIR}}; go mod download; Pop-Location
@@ -38,50 +38,53 @@ install:
 
 # ────────────────────────── Run ──────────────────────────
 
-# 後端（air 熱重載，自動載 backend/.env，無 ngrok）
-# 監聽 :8080；frontend 會從 Metro hostUri 自動推 LAN IP，不需要 tunnel。
+# Backend (air hot reload, auto-loads backend/.env, no ngrok).
+# Listens on :8080; the frontend infers the LAN IP from Metro hostUri,
+# so no tunnel is needed.
 #
-# ⚠️ 整段必須是「一個 PowerShell 呼叫」（用 `;` 串接），不然 [Environment]::SetEnvironmentVariable
-#    在前一行設的 env 在下一行（air）就讀不到了。
+# WARNING: this whole recipe must be a single PowerShell invocation
+# (chained with `;`). Otherwise [Environment]::SetEnvironmentVariable
+# values set in one line are not visible to the next line (air).
 backend:
   if (-not (Test-Path "{{BACKEND_DIR}}\.env")) { Write-Warning "{{BACKEND_DIR}}\.env not found. Run: just bootstrap"; exit 1 } ; \
   Get-Content "{{BACKEND_DIR}}\.env" | Where-Object { $_ -match '^\s*[A-Z][A-Z0-9_]*\s*=' -and $_ -notmatch '^\s*#' } | ForEach-Object { $k, $v = $_ -split '=', 2; [Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim().Trim('"').Trim("'"), 'Process') } ; \
   Write-Host "==> Starting backend on http://localhost:8080 (air hot reload)" ; \
   Push-Location {{BACKEND_DIR}} ; air ; Pop-Location
 
-# 後端 + ngrok（只有想把本機 backend 暴露到外網時才用，例如 callback 測試）
-# 跑前 ngrok 至少 `ngrok config add-authtoken <token>` 一次
+# Backend + ngrok (only when you need to expose the local backend to the public
+# internet, e.g. for callback testing). Run `ngrok config add-authtoken <token>`
+# at least once before using this.
 backend-tunnel:
   Write-Host "==> Starting ngrok on :8080 (Ctrl+C to stop)"
   ngrok http 8080
 
-# 前端 tunnel 模式 — 實機 Expo Go 隔網路也能連
+# Frontend tunnel mode — works for a physical device on a different network
 frontend:
   Push-Location {{FRONTEND_DIR}}; npx expo start --tunnel; Pop-Location
 
-# 前端 LAN 模式 — 同 WiFi 的手機可直接掃 QR；後端走 LAN IP
+# Frontend LAN mode — phones on the same WiFi can scan the QR; backend uses LAN IP
 frontend-lan:
   Push-Location {{FRONTEND_DIR}}; npx expo start; Pop-Location
 
-# 前端 web 版本 → http://localhost:8081
+# Frontend web build → http://localhost:8081
 frontend-web:
   Push-Location {{FRONTEND_DIR}}; npx expo start --web; Pop-Location
 
-# 前端 iOS 模擬器（macOS only）
+# Frontend iOS simulator (macOS only)
 frontend-ios:
   Push-Location {{FRONTEND_DIR}}; npx expo start --ios; Pop-Location
 
-# 前端 Android 模擬器
+# Frontend Android emulator
 frontend-android:
   Push-Location {{FRONTEND_DIR}}; npx expo start --android; Pop-Location
 
-# 多終端開發指引
+# Multi-terminal dev hint
 dev:
-  Write-Host "👉 開兩個 PowerShell 視窗：" -ForegroundColor Cyan
-  Write-Host "    視窗 1:  just backend"
-  Write-Host "    視窗 2:  just frontend-web   (or just frontend / just frontend-lan)"
+  Write-Host "Open two PowerShell windows:" -ForegroundColor Cyan
+  Write-Host "    Window 1:  just backend"
+  Write-Host "    Window 2:  just frontend-web   (or just frontend / just frontend-lan)"
   Write-Host ""
-  Write-Host "首次：先 `just bootstrap` 並編輯 backend\.env 填 GEMINI_API_KEY" -ForegroundColor Yellow
+  Write-Host "First time: run `just bootstrap` and edit backend\.env to set GEMINI_API_KEY" -ForegroundColor Yellow
 
 # ────────────────────────── Backend checks ──────────────────────────
 
@@ -94,9 +97,9 @@ backend-test:
 backend-vet:
   Push-Location {{BACKEND_DIR}}; go vet ./...; Pop-Location
 
-# gofmt 檢查；有未格式化檔案會失敗
+# gofmt check; fails if any file is not formatted
 backend-lint:
-  Push-Location {{BACKEND_DIR}} ; $diff = gofmt -l . ; Pop-Location ; if ($diff) { Write-Error "gofmt 未通過：`n$diff" ; exit 1 }
+  Push-Location {{BACKEND_DIR}} ; $diff = gofmt -l . ; Pop-Location ; if ($diff) { Write-Error "gofmt failed:`n$diff" ; exit 1 }
 
 # ────────────────────────── Frontend checks ──────────────────────────
 
@@ -120,12 +123,13 @@ tf-plan-staging:
 tf-apply-staging:
   Push-Location {{TERRAFORM_DIR}} ; $env:TF_WORKSPACE='wattrent-staging' ; terraform apply -var-file=envs/staging.tfvars ; Pop-Location
 
-# Production 暫時鎖住，發表前再開（CI 也是同樣鎖法，見 .github/workflows/infra.yml）
+# Production is locked for now; unlock right before launch (CI uses the same
+# guard, see .github/workflows/infra.yml)
 tf-plan-prod:
-  Write-Warning "Production 暫時鎖住。確定要解鎖請手動跑：`n  cd terraform; `$env:TF_WORKSPACE='wattrent-production'; terraform plan -var-file=envs/production.tfvars"
+  Write-Warning "Production is currently locked. To unlock, run manually:`n  cd terraform; `$env:TF_WORKSPACE='wattrent-production'; terraform plan -var-file=envs/production.tfvars"
 
 tf-apply-prod:
-  Write-Warning "Production 暫時鎖住。確定要解鎖請手動跑：`n  cd terraform; `$env:TF_WORKSPACE='wattrent-production'; terraform apply -var-file=envs/production.tfvars"
+  Write-Warning "Production is currently locked. To unlock, run manually:`n  cd terraform; `$env:TF_WORKSPACE='wattrent-production'; terraform apply -var-file=envs/production.tfvars"
 
 # ────────────────────────── Firestore ──────────────────────────
 
@@ -134,14 +138,14 @@ firestore-deploy:
 
 # ────────────────────────── Maintenance ──────────────────────────
 
-# 清 air 暫存 + 重置 Expo router 範例
+# Clear air's tmp folder and reset the Expo router boilerplate
 reset:
   Write-Host "==> Cleaning backend tmp"
   Remove-Item -Recurse -Force "{{BACKEND_DIR}}\tmp\*" -ErrorAction SilentlyContinue
   Write-Host "==> Resetting frontend project"
   Push-Location {{FRONTEND_DIR}}; npm run reset-project; Pop-Location
 
-# 列出工具版本（debug 環境用）
+# Print tool versions (for debugging local environments)
 versions:
   Write-Host "── Tooling versions ──" -ForegroundColor Cyan
   Write-Host "go      : $(go version)"

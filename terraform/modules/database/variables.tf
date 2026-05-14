@@ -4,12 +4,12 @@ variable "project_id" {
 }
 
 variable "location" {
-  description = "Firestore location（一旦建立不可變）"
+  description = "Firestore location (immutable once created)"
   type        = string
 }
 
 variable "labels" {
-  description = "Labels（Firestore database resource 不支援 labels，此欄位保留給未來相容）"
+  description = "Labels (the Firestore database resource does NOT support labels; this field is reserved for forward compatibility)"
   type        = map(string)
   default     = {}
 }

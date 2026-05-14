@@ -3,7 +3,7 @@ import { resolveApiUrl } from '@/lib/apiUrl';
 
 const API_BASE_URL = resolveApiUrl();
 
-// 與後端 models.UserSettings 對齊的欄位（不含 userId — 由 token 決定）
+// Fields aligned with backend models.UserSettings (no userId; that is determined by the token).
 type SettingsPayload = Omit<UserSettings, 'userId' | 'updatedAt'>;
 
 const DEFAULT_SETTINGS: UserSettings = {
@@ -60,12 +60,12 @@ class SettingsService {
       }
       return DEFAULT_SETTINGS;
     } catch (err) {
-      console.warn(`settings: GET /settings failed (${API_BASE_URL}), 使用預設值`, err);
+      console.warn(`settings: GET /settings failed (${API_BASE_URL}), using defaults`, err);
       return DEFAULT_SETTINGS;
     }
   }
 
-  /** 完整覆寫 */
+  /** Full overwrite */
   async saveSettings(settings: UserSettings): Promise<void> {
     const res = await authedFetch('/settings', {
       method: 'PUT',
@@ -77,7 +77,7 @@ class SettingsService {
     }
   }
 
-  /** 局部更新；只送有值的欄位 */
+  /** Partial update; only sends fields that are present */
   async patchSettings(partial: Partial<SettingsPayload>): Promise<UserSettings> {
     const res = await authedFetch('/settings', {
       method: 'PATCH',

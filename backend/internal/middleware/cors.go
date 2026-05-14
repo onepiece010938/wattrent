@@ -7,10 +7,10 @@ import (
 	"wattrent/internal/config"
 )
 
-// CORS 設定。
+// CORS configuration.
 //
-// production：嚴格白名單（不允許 *）
-// 其他環境：若 allowedOrigins 含 "*"，使用 AllowAllOrigins
+// production: strict allowlist ("*" not allowed).
+// other environments: if AllowedOrigins contains "*", use AllowAllOrigins.
 func CORS(cfg *config.Config) gin.HandlerFunc {
 	corsCfg := cors.Config{
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -37,7 +37,7 @@ func CORS(cfg *config.Config) gin.HandlerFunc {
 
 	if allowAll {
 		corsCfg.AllowAllOrigins = true
-		corsCfg.AllowCredentials = false // wildcard 與 credentials 不能共存
+		corsCfg.AllowCredentials = false // wildcard cannot coexist with credentials
 	} else {
 		corsCfg.AllowOrigins = cfg.AllowedOrigins
 	}

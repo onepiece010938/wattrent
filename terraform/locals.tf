@@ -1,31 +1,31 @@
 # ──────────────────────────────────────────────────────────────────────────
-# 共用 locals
+# Shared locals
 # ──────────────────────────────────────────────────────────────────────────
 
 locals {
-  # GCP project ID：staging → wattrent-staging；production → wattrent-prod
+  # GCP project ID: staging → wattrent-staging; production → wattrent-prod.
   gcp_project_id = (
     var.gcp_project_id != "" ? var.gcp_project_id :
     var.env == "production" ? "wattrent-prod" :
     "wattrent-${var.env}"
   )
 
-  # GCS bucket 命名
+  # GCS bucket name.
   meters_bucket_name = "wattrent-meters-${var.env}"
 
-  # Cloud Run service 名稱
+  # Cloud Run service name.
   api_service_name = "wattrent-api"
 
-  # API 完整網域：
+  # Full API hostname:
   #   production → api.wattrent.app
-  #   其他       → api.{env}.wattrent.app
+  #   other      → api.{env}.wattrent.app
   api_fqdn = (
     var.domain_root == "" ? "" :
     var.env == "production" ? "${var.api_subdomain}.${var.domain_root}" :
     "${var.api_subdomain}.${var.env}.${var.domain_root}"
   )
 
-  # 共用 labels（GCP 只接受小寫、數字、`-` `_`）
+  # Common labels (GCP only accepts lowercase, digits, `-`, and `_`).
   common_labels = merge(
     {
       app        = "wattrent"
@@ -35,29 +35,29 @@ locals {
     var.extra_labels
   )
 
-  # 啟用的 GCP API 清單
+  # GCP APIs that need to be enabled.
   enabled_apis = [
     "run.googleapis.com",                  # Cloud Run
     "firestore.googleapis.com",            # Firestore
     "storage.googleapis.com",              # Cloud Storage
     "secretmanager.googleapis.com",        # Secret Manager
-    "aiplatform.googleapis.com",           # Vertex AI（AI_BACKEND=vertex 時使用）
-    "generativelanguage.googleapis.com",   # Gemini Developer API（AI_BACKEND=gemini、供 AI Studio API key 所用）
+    "aiplatform.googleapis.com",           # Vertex AI (used when AI_BACKEND=vertex)
+    "generativelanguage.googleapis.com",   # Gemini Developer API (used by AI_BACKEND=gemini with an AI Studio API key)
     "identitytoolkit.googleapis.com",      # Identity Platform
     "iam.googleapis.com",                  # IAM
-    "iamcredentials.googleapis.com",       # WIF token 簽發
-    "cloudresourcemanager.googleapis.com", # 改 IAM 必須
-    "compute.googleapis.com",              # cicd 模組讀 default compute SA + Cloud Run gen2 後端需要
-    "artifactregistry.googleapis.com",     # 容器 registry
-    "cloudbuild.googleapis.com",           # 給 gcloud run deploy --source 用
+    "iamcredentials.googleapis.com",       # WIF token issuance
+    "cloudresourcemanager.googleapis.com", # Required to modify IAM
+    "compute.googleapis.com",              # cicd module reads the default compute SA, and Cloud Run gen2 backend needs it
+    "artifactregistry.googleapis.com",     # Container registry
+    "cloudbuild.googleapis.com",           # Used by gcloud run deploy --source
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     # ─── billing kill switch ───
-    "cloudbilling.googleapis.com",   # 取消 / 設定 project billing
-    "billingbudgets.googleapis.com", # 建 budget
-    "pubsub.googleapis.com",         # budget alert 出口
-    "cloudfunctions.googleapis.com", # kill function
+    "cloudbilling.googleapis.com",   # Disable / configure project billing
+    "billingbudgets.googleapis.com", # Create the budget
+    "pubsub.googleapis.com",         # Budget alert delivery channel
+    "cloudfunctions.googleapis.com", # The kill function
     "eventarc.googleapis.com",       # Pub/Sub → Function gen2 trigger
-    # 註：functions gen2 底層用 run.googleapis.com，已在上面啟用
+    # Note: gen2 functions run on top of run.googleapis.com, which is already enabled above.
   ]
 }

@@ -8,11 +8,11 @@ export const useTranslation = () => {
 
   const changeAppLanguage = async (language: SupportedLanguage) => {
     await changeLanguage(language);
-    // 強制重新渲染所有使用 useTranslation 的組件
+    // Force every component using useTranslation to re-render
     forceUpdate({});
   };
 
-  // 監聽語言變更事件
+  // Subscribe to language change events
   useEffect(() => {
     const handleLanguageChange = () => {
       forceUpdate({});

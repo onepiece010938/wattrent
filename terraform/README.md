@@ -1,41 +1,41 @@
-# WattRent Terraform / OpenTofu 結構
+# WattRent Terraform / OpenTofu Layout
 
-> 管理 GCP（Cloud Run、Firestore、GCS、Vertex AI 選配、Identity Platform、Budget kill-switch）+ Cloudflare DNS + Sentry + Gemini API key Secret。
+> Manages GCP (Cloud Run, Firestore, GCS, optional Vertex AI, Identity Platform, budget kill-switch) + Cloudflare DNS + Sentry + Gemini API key Secret.
 
 ---
 
-## 設計原則
+## Design principles
 
-1. **零長效金鑰** — TFC 與 GitHub Actions 都用 OIDC + Workload Identity Federation，磁碟與 secret store 上完全不放 GCP service account JSON key。
-2. **預算硬上限** — 達到預算 100% 自動 disable billing；Cloud Run 立刻 503，Firestore 變 read-only-cache，**保證不會被多收錢**。
-3. **State on HCP TFC** — 兩個 workspace（`wattrent-staging` / `wattrent-production`）跑各自的 `tfvars`，state 不進 git。
-4. **Module 化** — root 只做組合，所有資源包進 `modules/*`。
-5. **不在 console 動手** — 除了下面寫明的「一次性 bootstrap」之外，所有變更都走 PR + plan + apply。
+1. **Zero long-lived keys** — both TFC and GitHub Actions use OIDC + Workload Identity Federation; no GCP service account JSON key ever touches disk or a secret store.
+2. **Hard budget cap** — when the monthly budget hits 100%, billing is automatically disabled; Cloud Run starts returning 503, Firestore drops to read-only-cache, **so you cannot be overcharged**.
+3. **State on HCP TFC** — two workspaces (`wattrent-staging` / `wattrent-production`) consume their own `tfvars`; state is NOT in git.
+4. **Modular** — the root module only composes; every resource lives inside `modules/*`.
+5. **No clicking in the console** — except for the one-shot bootstrap below, every change goes through PR + plan + apply.
 
-## 目錄
+## Layout
 
 ```
 terraform/
-├── README.md            ← 此檔
-├── versions.tf          ← Terraform / Provider 版本
-├── backend.tf           ← State backend（HCP Terraform Cloud）
-├── providers.tf         ← Provider 設定（auth 走 ADC / TFC 動態 credentials）
-├── variables.tf         ← 頂層輸入
-├── locals.tf            ← 共用 locals（project ID、API 清單、labels）
+├── README.md            ← this file
+├── versions.tf          ← Terraform / Provider versions
+├── backend.tf           ← State backend (HCP Terraform Cloud)
+├── providers.tf         ← Provider config (auth via ADC / TFC dynamic credentials)
+├── variables.tf         ← Top-level inputs
+├── locals.tf            ← Shared locals (project ID, API list, labels)
 ├── main.tf              ← Module composition
-├── outputs.tf           ← 給 GitHub Actions 與 frontend 拿
+├── outputs.tf           ← Consumed by GitHub Actions and the frontend
 ├── envs/
 │   ├── staging.tfvars
 │   └── production.tfvars
 ├── scripts/
-│   ├── bootstrap.ps1    ← 一次性：建 TFC WIF、SA、IAM
-│   └── set-tfc-vars.ps1 ← 一次性：把 TFC env/tf 變數一次寫齊（idempotent）
+│   ├── bootstrap.ps1    ← One-shot: stand up TFC WIF, SA, IAM
+│   └── set-tfc-vars.ps1 ← One-shot: write the TFC env/tf variables in one go (idempotent)
 └── modules/
-    ├── project_services/   ← 啟用 GCP API
+    ├── project_services/   ← Enable GCP APIs
     ├── api/                ← Cloud Run + Service Account + IAM + Artifact Registry
     ├── database/           ← Firestore database (Native mode)
-    ├── storage/            ← GCS bucket（電表照片 + lifecycle）
-    ├── auth/               ← Identity Platform 設定
+    ├── storage/            ← GCS bucket (meter photos + lifecycle)
+    ├── auth/               ← Identity Platform configuration
     ├── cicd/               ← GitHub Actions Workload Identity Federation
     ├── dns/                ← Cloudflare records
     ├── observability/      ← Sentry project
@@ -44,23 +44,25 @@ terraform/
 
 ---
 
-## 一次性 bootstrap（每個環境跑一次）
+## One-shot bootstrap (run once per environment)
 
-> Terraform 不能管理「自己賴以運作的資源」（誰來建第一個 SA？）。
-> 我們把這段做成 PowerShell 腳本，幫你把 TFC 的 WIF 設定好之後就再也不用碰。
+> Terraform cannot manage "the resources that Terraform itself depends on"
+> (who creates the very first SA?). We package this step into a PowerShell
+> script that wires up the TFC WIF setup so you never have to touch it again.
 
-### 0. 安裝工具
+### 0. Install tooling
 
 ```powershell
-# 已有可跳過
+# Skip whatever you already have
 winget install Google.CloudSDK
 winget install Hashicorp.Terraform
-winget install Cloudflare.cloudflared    # 之後才會用到
+winget install Cloudflare.cloudflared    # Needed later
 ```
 
-> ⚠️ winget 三個套件**不會自動把 PATH 加到目前 PowerShell session**，要重開一個視窗（或 `refreshenv`）才能看到 `gcloud` / `terraform` / `cloudflared`。
+> WARNING: winget does NOT add the new tools to PATH for the current PowerShell session,
+> so open a new window (or run `refreshenv`) before `gcloud` / `terraform` / `cloudflared` resolve.
 >
-> 若 `where.exe gcloud` 仍找不到，把以下三個目錄加進使用者 PATH（一次設好就永久生效）：
+> If `where.exe gcloud` still cannot find it, append these three directories to your user PATH (set once, persists forever):
 >
 > ```text
 > %LOCALAPPDATA%\Google\Cloud SDK\google-cloud-sdk\bin
@@ -68,48 +70,48 @@ winget install Cloudflare.cloudflared    # 之後才會用到
 > %LOCALAPPDATA%\Microsoft\WinGet\Packages\Cloudflare.cloudflared_Microsoft.Winget.Source_8wekyb3d8bbwe
 > ```
 
-#### 安裝 `gcloud beta`（billing 指令需要）
+#### Install `gcloud beta` (required for the billing commands)
 
-winget 版的 gcloud 鎖住 component manager，直接 `gcloud components install beta` 會跳「Cannot use bundled Python ... in non-interactive mode」。
-照官方提示繞過：
+The winget build of gcloud locks the component manager, so a plain `gcloud components install beta` fails with "Cannot use bundled Python ... in non-interactive mode".
+Use the official workaround:
 
 ```powershell
 $env:CLOUDSDK_PYTHON = (gcloud components copy-bundled-python | Select-Object -Last 1).Trim()
 gcloud components install beta --quiet
 Remove-Item Env:CLOUDSDK_PYTHON
-gcloud beta --help        # 驗證
+gcloud beta --help        # verify
 ```
 
-登入：
+Log in:
 
 ```powershell
 gcloud auth login
-gcloud auth application-default login    # 本地若要直接 terraform plan 也需要這個
+gcloud auth application-default login    # also required for local terraform plan
 ```
 
-### 1. 在 HCP Terraform Cloud 建好 organization + workspace
+### 1. Create the HCP Terraform Cloud organization + workspaces
 
-到 <https://app.terraform.io>：
+Go to <https://app.terraform.io>:
 
-1. 建 organization，名稱建議 `wattrent`
-2. 建兩個 workspace：
+1. Create the organization; the suggested name is `wattrent`
+2. Create two workspaces:
    - `wattrent-staging`
    - `wattrent-production`
 
-   **Workflow 選 `CLI-driven`**（不是 VCS-driven，也不是 API-driven）：
-   - 我們的 GitHub Actions（[.github/workflows/infra.yml](../.github/workflows/infra.yml)）是用 `terraform plan/apply` CLI 觸發 TFC，從 TFC 角度等同 CLI workflow。
-   - VCS-driven 會讓 TFC 自己訂閱 GitHub webhook，跟 GH Actions 重複觸發。
-   - API-driven 是給寫客製 orchestrator 的人用的，我們不需要。
+   **Workflow type: `CLI-driven`** (NOT VCS-driven, NOT API-driven):
+   - Our GitHub Actions ([.github/workflows/infra.yml](../.github/workflows/infra.yml)) drive TFC through `terraform plan/apply` CLI, which from TFC's perspective is the CLI workflow.
+   - VCS-driven would make TFC subscribe to GitHub webhooks itself and double-trigger alongside GH Actions.
+   - API-driven is meant for people writing custom orchestrators; we don't need it.
 
-3. 兩個 workspace 都加 tag（純分類用，**不影響執行**）：
-   * 舊版 UI 只有一格 → 填 `wattrent`
-   * 新版 key/value UI → 加兩條：`app=wattrent`、`env=staging`（production workspace 填 `env=production`）
-   * 不確定就直接 Skip，事後還能改
-4. 進每個 workspace → **Settings → General → Execution Mode** → **保持 `Remote`**（預設）。
-   * Remote：plan/apply 跑在 TFC 雲端 runner，可吃我們設定的 OIDC 動態 credentials。
-   * Local：TFC 只當 state backend，dynamic credentials 失效（要退回 SA key），**不要選**。
+3. Tag both workspaces (purely for grouping; **does NOT affect execution**):
+   * Old single-field UI -> enter `wattrent`
+   * New key/value UI -> add `app=wattrent` and `env=staging` (use `env=production` for the production workspace)
+   * If unsure just Skip; you can change it later
+4. In each workspace -> **Settings -> General -> Execution Mode** -> **keep as `Remote`** (the default).
+   * Remote: plan/apply runs on the TFC cloud runner and can pick up the OIDC dynamic credentials we configure.
+   * Local: TFC is only used as a state backend, dynamic credentials stop working (you'd have to fall back to a SA key); **do NOT pick this**.
 
-### 2. 跑 bootstrap 腳本
+### 2. Run the bootstrap script
 
 ```powershell
 cd terraform\scripts
@@ -120,7 +122,7 @@ cd terraform\scripts
   -TfcOrganization  "wattrent" `
   -TfcWorkspace     "wattrent-staging"
 
-# Production 環境
+# Production environment
 .\bootstrap.ps1 `
   -ProjectId        "wattrent-prod" `
   -BillingAccountId "0X0X0X-0X0X0X-0X0X0X" `
@@ -128,25 +130,25 @@ cd terraform\scripts
   -TfcWorkspace     "wattrent-production"
 ```
 
-腳本做的事（全部 idempotent，可重複執行）：
+What the script does (fully idempotent, safe to re-run):
 
-| 步驟 | 內容 |
+| Step | Action |
 | --- | --- |
-| 1 | `gcloud projects create` 建 GCP project（或跳過） |
-| 2 | `gcloud beta billing projects link` 連 billing |
-| 3 | 啟用 bootstrap 必要 API（`iam` / `iamcredentials` / `cloudresourcemanager` / `sts` / `serviceusage`） |
-| 4 | 建 Workload Identity Pool `tfc-pool` |
-| 5 | 建 Pool Provider `tfc-provider`，issuer = `https://app.terraform.io`，attribute_condition 限定 organization |
-| 6 | 建 SA `tfc-runner@{project}.iam.gserviceaccount.com` |
-| 7 | 給 SA `roles/owner`（project）+ `roles/billing.user` & `roles/billing.costsManager`（billing account） |
-| 8 | 綁定：`principalSet://.../attribute.terraform_full_workspace/...workspace:{workspace}` → `workloadIdentityUser` 在該 SA |
-| 9 | 印出要貼到 TFC workspace 的環境變數 |
+| 1 | `gcloud projects create` to create the GCP project (or skip) |
+| 2 | `gcloud beta billing projects link` to attach billing |
+| 3 | Enable the APIs needed for bootstrap (`iam` / `iamcredentials` / `cloudresourcemanager` / `sts` / `serviceusage`) |
+| 4 | Create Workload Identity Pool `tfc-pool` |
+| 5 | Create Pool Provider `tfc-provider` with issuer = `https://app.terraform.io` and an attribute_condition pinned to the organization |
+| 6 | Create SA `tfc-runner@{project}.iam.gserviceaccount.com` |
+| 7 | Grant the SA `roles/owner` (project) + `roles/billing.user` & `roles/billing.costsManager` (billing account) |
+| 8 | Bind: `principalSet://.../attribute.terraform_full_workspace/...workspace:{workspace}` -> `workloadIdentityUser` on the SA |
+| 9 | Print the env vars to paste into the TFC workspace |
 
-### 3. 把變數塞進 TFC workspace（自動）
+### 3. Push variables into the TFC workspace (automated)
 
-懶得在 TFC UI 一個一個加？用 [`set-tfc-vars.ps1`](./scripts/set-tfc-vars.ps1)，一次寫齊 5 個 env var + 2 個 Terraform var（`gcp_billing_account` 自動標 sensitive）。Idempotent，已存在會 PATCH 更新。
+Don't want to add them in the TFC UI one by one? Use [`set-tfc-vars.ps1`](./scripts/set-tfc-vars.ps1) to write all 5 env vars + 2 Terraform vars in one shot (`gcp_billing_account` is automatically marked sensitive). Idempotent: existing keys get PATCHed.
 
-先 `terraform login` 一次（會把 token 寫到 `%APPDATA%\terraform.d\credentials.tfrc.json`），之後：
+Run `terraform login` once first (it stores the token in `%APPDATA%\terraform.d\credentials.tfrc.json`), then:
 
 ```powershell
 cd terraform\scripts
@@ -156,7 +158,7 @@ cd terraform\scripts
   -Organization      "wattrent" `
   -Workspace         "wattrent-staging" `
   -GcpProjectId      "wattrent-staging" `
-  -GcpProjectNumber  "<bootstrap 印出的 project number>" `
+  -GcpProjectNumber  "<project number printed by bootstrap>" `
   -GcpBillingAccount "0X0X0X-0X0X0X-0X0X0X" `
   -GcpSaEmail        "tfc-runner@wattrent-staging.iam.gserviceaccount.com"
 
@@ -165,52 +167,52 @@ cd terraform\scripts
   -Organization      "wattrent" `
   -Workspace         "wattrent-production" `
   -GcpProjectId      "wattrent-prod" `
-  -GcpProjectNumber  "<bootstrap 印出的 project number>" `
+  -GcpProjectNumber  "<project number printed by bootstrap>" `
   -GcpBillingAccount "0X0X0X-0X0X0X-0X0X0X" `
   -GcpSaEmail        "tfc-runner@wattrent-prod.iam.gserviceaccount.com"
 ```
 
-如果偏好 UI，到 `https://app.terraform.io/app/{org}/workspaces/{workspace}/variables`，手動新增同樣的 7 個變數：
+If you prefer the UI, go to `https://app.terraform.io/app/{org}/workspaces/{workspace}/variables` and add the same 7 variables manually:
 
-**Environment variables**（不是 Terraform variable）：
+**Environment variables** (NOT Terraform variables):
 
 | Key | Value |
 | --- | --- |
 | `TFC_GCP_PROVIDER_AUTH` | `true` |
-| `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` | （腳本印出的 SA email） |
-| `TFC_GCP_PROJECT_NUMBER` | （腳本印出的 project number） |
+| `TFC_GCP_RUN_SERVICE_ACCOUNT_EMAIL` | (the SA email printed by the script) |
+| `TFC_GCP_PROJECT_NUMBER` | (the project number printed by the script) |
 | `TFC_GCP_WORKLOAD_POOL_ID` | `tfc-pool` |
 | `TFC_GCP_WORKLOAD_PROVIDER_ID` | `tfc-provider` |
 
-**Terraform variables**：
+**Terraform variables**:
 
 | Key | Value | Sensitive |
 | --- | --- | --- |
 | `gcp_project_id` | `wattrent-staging` / `wattrent-prod` | no |
 | `gcp_billing_account` | `0X0X0X-0X0X0X-0X0X0X` | **yes** |
 
-之後 TFC 跑每個 plan/apply 都會自動：
-1. 從自己的 OIDC issuer 取 short-lived token
-2. 拿去 GCP STS 換 federated token
-3. impersonate `tfc-runner@` SA
-4. 把 short-lived ADC 寫到 runner 容器 → google provider 自動讀
+After this, every TFC plan/apply will automatically:
+1. Get a short-lived token from its own OIDC issuer
+2. Exchange it at GCP STS for a federated token
+3. Impersonate the `tfc-runner@` SA
+4. Write short-lived ADC into the runner container -> the google provider picks it up
 
-整個流程**沒有任何 long-lived key**離開 GCP。
+The whole flow involves **no long-lived key** ever leaving GCP.
 
-### 4. 第三方 API token（Cloudflare / Sentry，用到再加）
+### 4. Third-party API tokens (Cloudflare / Sentry, add when you need them)
 
-同樣是 Environment variable，且勾 sensitive：
+Same Environment variable form, with sensitive enabled:
 
-| Key | 用途 | 最小權限 |
+| Key | Purpose | Minimum scope |
 | --- | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | DNS 模組 | Zone:Read + DNS:Edit on 該 zone |
-| `SENTRY_AUTH_TOKEN` | Sentry 模組 | `project:write`、`project:read` |
+| `CLOUDFLARE_API_TOKEN` | dns module | Zone:Read + DNS:Edit on the zone |
+| `SENTRY_AUTH_TOKEN` | observability module | `project:write`, `project:read` |
 
-### 5. 第一次 apply
+### 5. First apply
 
 ```powershell
 cd terraform
-terraform login        # 第一次登入 HCP TFC（瀏覽器跳出）
+terraform login        # First TFC login (browser pops up)
 terraform init
 
 $env:TF_WORKSPACE = "wattrent-staging"
@@ -218,33 +220,33 @@ terraform plan  -var-file="envs/staging.tfvars"
 terraform apply -var-file="envs/staging.tfvars"
 ```
 
-第一次 apply 完成後，把 outputs 貼到 GitHub repo Secrets 給 GH Actions 用：
+After the first successful apply, copy the outputs into GitHub repo Secrets so GH Actions can use them:
 
 ```powershell
 terraform output -raw github_actions_workload_identity_provider
 terraform output -raw github_actions_service_account
 ```
 
-對應到 GitHub repo Settings → Secrets：
+These map to GitHub repo Settings -> Secrets:
 - `GCP_WORKLOAD_IDENTITY_PROVIDER_STAGING`
 - `GCP_DEPLOY_SA_EMAIL_STAGING`
 
-production 同樣再跑一次。
+Repeat for production.
 
 ---
 
-## 預算硬上限（kill switch）
+## Hard budget cap (kill switch)
 
-### 為什麼要這個
+### Why this exists
 
-GCP **沒有**「達到金額自動關服務」的內建開關，只有 alert email。
-`billing` module 用官方建議的做法做出硬性上限：
+GCP has **no** built-in switch for "automatically disable services when a budget is hit"; only alert emails.
+The `billing` module implements the officially recommended hard cap:
 
 ```
-每月 budget
-   │ 達到 50% / 90% → email（通知，不停服）
+Monthly budget
+   │ Hit 50% / 90% -> email (notify only, services stay up)
    ▼
-   100% 達標
+   100% reached
    │
    ▼
 google_billing_budget.all_updates_rule.pubsub_topic
@@ -255,53 +257,53 @@ Pub/Sub topic: billing-budget-alerts
    ▼
 Cloud Function (Gen2): billing-killer
    │
-   │  呼叫 cloudbilling.projects.updateBillingInfo
+   │  calls cloudbilling.projects.updateBillingInfo
    │  body = { billingAccountName: "" }
    ▼
-Project billing → DISABLED
+Project billing -> DISABLED
    │
    ▼
-Cloud Run 503 / Firestore writes 失敗 / Gemini OCR 拒絕
-（讀取自己的 metadata、Cloud Logging 仍可運作）
+Cloud Run 503 / Firestore writes fail / Gemini OCR refuses
+(reads of own metadata and Cloud Logging continue to work)
 ```
 
-副作用必須知道：
+You MUST be aware of the side effects:
 
-* 一旦觸發，App 直接 down 到你手動恢復為止 → **這是設計目的**：不被超收。
-* Firestore 在 billing 停用後**進入 read-only cache**，新寫入一律失敗。資料**不會掉**。
-* 重新接 billing：`gcloud beta billing projects link {project} --billing-account=...`，5 分鐘內回復。
-* Cloud Function 自己也是付費服務 — 但 billing 停用前最後一次執行已經把自己的工作做完。
+* Once triggered, the app is hard-down until you manually restore it -> **this is the design goal**: never get overcharged.
+* Once billing is disabled, Firestore **enters read-only cache mode**; new writes always fail. Data **is NOT lost**.
+* To re-attach billing: `gcloud beta billing projects link {project} --billing-account=...`; recovery within ~5 minutes.
+* The Cloud Function itself is also a paid service, but the very last invocation before billing is disabled has already done its job.
 
-### 設定方式
+### How to configure
 
-在 [envs/staging.tfvars](envs/staging.tfvars) / [envs/production.tfvars](envs/production.tfvars)：
+In [envs/staging.tfvars](envs/staging.tfvars) / [envs/production.tfvars](envs/production.tfvars):
 
 ```hcl
-billing_budget_amount        = 5     # USD/月
-billing_budget_currency      = "USD" # 必須等於 billing account 幣別
-billing_alert_thresholds     = [0.5, 0.9]   # 純 email
-billing_kill_switch_enabled  = true   # ← 這個是「拒絕流量」開關
+billing_budget_amount        = 5     # USD/month
+billing_budget_currency      = "USD" # MUST match the billing account currency
+billing_alert_thresholds     = [0.5, 0.9]   # email only
+billing_kill_switch_enabled  = true   # <- the "refuse traffic" switch
 ```
 
-* **想只要 alert 不要 kill** → `billing_kill_switch_enabled = false`，此時只送 email
-* **想 50% 就拒絕流量** → `billing_alert_thresholds = []` 加 `billing_budget_amount = 你的50%金額`
-* 預算幣別必須跟 billing account 一致；台灣信用卡開的 GCP 帳號通常是 USD，但有人是 TWD，到 <https://console.cloud.google.com/billing> 看一下
+* **Want alerts only, no kill** -> `billing_kill_switch_enabled = false`; only emails are sent
+* **Want to refuse traffic at 50%** -> `billing_alert_thresholds = []` and `billing_budget_amount = your-50%-amount`
+* The budget currency must match the billing account currency. GCP accounts opened with a Taiwan credit card are usually USD, but some are TWD; check at <https://console.cloud.google.com/billing>
 
-### 怎麼測試 kill switch
+### How to test the kill switch
 
-不想真的等到月底破預算，可以手動發一筆假訊息：
+To avoid actually waiting for the month-end overrun, you can publish a fake message manually:
 
 ```powershell
 gcloud pubsub topics publish billing-budget-alerts `
   --project=wattrent-staging `
   --message='{"costAmount":1000,"budgetAmount":1,"costIntervalStart":"2026-05-01T00:00:00Z"}'
 
-# 看 Function log
+# Read the function log
 gcloud functions logs read billing-killer `
   --region=asia-east1 --project=wattrent-staging --gen2
 ```
 
-測完別忘了把 billing account 重新接回去：
+After testing, do not forget to re-attach the billing account:
 
 ```powershell
 gcloud beta billing projects link wattrent-staging `
@@ -310,14 +312,14 @@ gcloud beta billing projects link wattrent-staging `
 
 ---
 
-## 日常操作
+## Day-to-day operation
 
 ```powershell
 cd terraform
-terraform login                # 第一次：登入 HCP TFC
+terraform login                # First time: log in to HCP TFC
 terraform init
 
-# 切換 workspace
+# Switch workspace
 $env:TF_WORKSPACE = "wattrent-staging"
 terraform plan  -var-file="envs/staging.tfvars"
 terraform apply -var-file="envs/staging.tfvars"
@@ -327,105 +329,104 @@ terraform plan  -var-file="envs/production.tfvars"
 terraform apply -var-file="envs/production.tfvars"
 ```
 
-CI/CD 走 [.github/workflows/infra.yml](../.github/workflows/infra.yml)：PR 自動 plan、main 自動 apply。
+CI/CD goes through [.github/workflows/infra.yml](../.github/workflows/infra.yml): PRs auto-plan, main auto-applies.
 
 ---
 
-## 與其他工具的分工
+## Division of labor with other tools
 
-| 任務 | 由誰處理 |
+| Task | Owned by |
 | --- | --- |
-| GCP 資源（Cloud Run、Firestore、GCS、IAM、Budget 等） | Terraform |
-| Firestore rules / indexes 部署 | `firebase deploy --only firestore:rules,firestore:indexes`（GitHub Actions 跑） |
-| Cloud Run image build & push | GitHub Actions（用 WIF 認證） |
-| Cloud Run deploy（image tag 更新） | GitHub Actions（`gcloud run deploy --image=...`） |
-| 機密內容 | Secret Manager（Terraform 建 secret，CI/CD 寫值） |
-| 前端 OTA | EAS Update（GitHub Actions） |
+| GCP resources (Cloud Run, Firestore, GCS, IAM, Budget, etc.) | Terraform |
+| Firestore rules / indexes deploy | `firebase deploy --only firestore:rules,firestore:indexes` (run by GitHub Actions) |
+| Cloud Run image build & push | GitHub Actions (auth via WIF) |
+| Cloud Run deploy (image tag bump) | GitHub Actions (`gcloud run deploy --image=...`) |
+| Secret values | Secret Manager (Terraform creates the secret container; CI/CD writes the value) |
+| Frontend OTA | EAS Update (GitHub Actions) |
 
 ---
 
-## TODO（按優先級排序）
+## TODO (in priority order)
 
-### P0：上線前必處理
+### P0: must-do before production launch
 
-- [ ] **Bootstrap 跑兩次**
-  完成兩個環境的 `bootstrap.ps1` + 在 TFC workspace 設好 5 個 `TFC_GCP_*` 變數。沒這步，TFC 會直接 auth fail。
+- [ ] **Run bootstrap twice**
+  Finish `bootstrap.ps1` for both environments and configure the 5 `TFC_GCP_*` variables in each TFC workspace. Without this, TFC will hard-fail on auth.
 
-- [ ] **填 `gcp_billing_account`**
-  兩個 `envs/*.tfvars` 預設是 placeholder `XXXXXX-XXXXXX-XXXXXX`，跑 plan 會被 `validation` 擋下。到 <https://console.cloud.google.com/billing> 拿。
+- [ ] **Set `gcp_billing_account`**
+  Both `envs/*.tfvars` ship with the placeholder `XXXXXX-XXXXXX-XXXXXX`; plan will be blocked by `validation`. Grab the value from <https://console.cloud.google.com/billing>.
 
-- [ ] **驗證 kill switch 真的會停**
-  跑上面「怎麼測試 kill switch」的指令，確認看到 `BILLING DISABLED on projects/...` log，然後重新接回 billing。**沒驗證過的 kill switch 等於沒裝**。
+- [ ] **Verify the kill switch actually stops things**
+  Run the "How to test the kill switch" command above and confirm the `BILLING DISABLED on projects/...` log appears, then re-attach billing. **An untested kill switch is a non-existent kill switch.**
 
-- [ ] **填 `github_repository` 並第一次 apply**
-  `envs/*.tfvars` 的 `github_repository = ""` 會導致 cicd module 不綁 WIF principal → GitHub Actions 連不上 GCP。填好之後再 apply。
+- [ ] **Set `github_repository` and apply for the first time**
+  `envs/*.tfvars` defaults `github_repository = ""`, which makes the cicd module skip the WIF principal binding -> GitHub Actions cannot reach GCP. Fill it in, then apply.
 
-### P1：上線一個月內處理
+### P1: handle within the first month after launch
 
-- [ ] **網域驗證 & DNS apply**
-  - 到 GCP Cloud Run console → Manage Custom Domains → 加 `api.wattrent.app` → 拿到 TXT 紀錄
-  - 把 TXT 加到 Cloudflare DNS（手動，**這步 GCP API 沒開放給 Terraform**）
-  - 驗證通過後在 `production.tfvars` 填 `cloudflare_zone_id` + `domain_root`，再 apply
-  - 完成後 `dns` module 才會建 CNAME
+- [ ] **Domain verification & DNS apply**
+  - In the GCP Cloud Run console -> Manage Custom Domains -> add `api.wattrent.app` -> get the TXT record
+  - Add the TXT record in Cloudflare DNS (manual; **the GCP API does not expose this step to Terraform**)
+  - Once verified, set `cloudflare_zone_id` + `domain_root` in `production.tfvars` and apply
+  - Only then will the `dns` module create the CNAME
 
-- [ ] **OAuth provider（Google / Apple sign-in）**
-  - Identity Platform 的 OAuth IdP 沒辦法 100% 用 Terraform 設好（OAuth client secret 必須先在 Google Cloud Console 建立）
-  - 流程：APIs & Services → Credentials → Create OAuth client ID → 拿 Client ID + Secret → 填進 `auth` module 的新變數（待加）
-  - 真的要走全自動可以用 `google_identity_platform_oauth_idp_config`，但 client secret 還是要先準備好
-  - 暫時：在 Identity Platform UI 啟用，之後 `terraform import` 進來
+- [ ] **OAuth providers (Google / Apple sign-in)**
+  - Identity Platform's OAuth IdPs cannot be set up 100% via Terraform (the OAuth client secret has to be created in Google Cloud Console first)
+  - Flow: APIs & Services -> Credentials -> Create OAuth client ID -> grab Client ID + Secret -> fill into new variables in the `auth` module (TBD)
+  - For full automation use `google_identity_platform_oauth_idp_config`, but you still have to prepare the client secret first
+  - For now: enable in the Identity Platform UI and `terraform import` later
 
 - [ ] **Cloud Monitoring notification channel**
-  目前 budget alert 只送到 billing account 的預設 email（第一次設 billing 時填的）。
-  要送到 LINE Notify / Slack：
-  1. Cloud Monitoring → Notification Channels → 建 webhook
-  2. 把 channel ID 加到 `billing_notification_channels = ["projects/{p}/notificationChannels/{id}"]`
+  Today, budget alerts only go to the default email of the billing account (the one you set when first configuring billing).
+  To send to LINE Notify / Slack:
+  1. Cloud Monitoring -> Notification Channels -> create a webhook
+  2. Append the channel ID: `billing_notification_channels = ["projects/{p}/notificationChannels/{id}"]`
   3. apply
 
-- [ ] **PR preview 環境**
-  目前 `cicd` module 的 WIF principalSet 是「該 repo 任意 branch / PR 都能 impersonate deploy SA」（夠用）。
-  若要做「每個 PR 一個獨立 Cloud Run revision」：
-  - 在 [.github/workflows/](../.github/workflows/) 加新 workflow，monitor PR event
+- [ ] **PR preview environments**
+  Today the WIF principalSet of the `cicd` module is "any branch / PR in the repo can impersonate the deploy SA" (good enough).
+  To get "one isolated Cloud Run revision per PR":
+  - Add a new workflow under [.github/workflows/](../.github/workflows/) that listens to PR events
   - `gcloud run deploy wattrent-api-pr-{number} --no-traffic --tag=pr-{number}`
-  - PR close 時 `gcloud run services delete wattrent-api-pr-{number}`
-  - 不需要動 Terraform；Cloud Run revision 是動態的
+  - On PR close: `gcloud run services delete wattrent-api-pr-{number}`
+  - No Terraform changes needed; Cloud Run revisions are dynamic
 
-### P2：日後優化
+### P2: future improvements
 
-- [ ] **最小權限 SA**
-  `tfc-runner` 現在拿 `roles/owner`。要拆細：
-  - `roles/run.admin`、`roles/firestore.admin`、`roles/storage.admin`、`roles/iam.serviceAccountAdmin`、`roles/resourcemanager.projectIamAdmin`、`roles/cloudfunctions.admin`、`roles/billing.user`
-  - 之後缺什麼補什麼（會看到 `403 Permission denied` log）
+- [ ] **Least-privilege SA**
+  `tfc-runner` currently has `roles/owner`. Split it down:
+  - `roles/run.admin`, `roles/firestore.admin`, `roles/storage.admin`, `roles/iam.serviceAccountAdmin`, `roles/resourcemanager.projectIamAdmin`, `roles/cloudfunctions.admin`, `roles/billing.user`
+  - Add what's missing as you hit `403 Permission denied` logs
 
 - [ ] **Multi-region failover**
-  目前所有東西都在 `asia-east1`（彰化）。Firestore Native 不支援跨 region failover；要做 DR 必須改 `nam5`/`eur3` multi-region database（一旦選定不能改）。
-  Cloud Run 改 multi-region：用 Global External LB + 兩個 region 的 service。
+  Today everything lives in `asia-east1` (Changhua). Firestore Native does not support cross-region failover; for DR you would have to switch to a `nam5`/`eur3` multi-region database (immutable once chosen).
+  Cloud Run multi-region: use a Global External LB plus services in two regions.
 
 - [ ] **Cost anomaly detection**
-  `google_billing_budget` 是「絕對金額」，不會發現「同一週期內忽然花得比平常多 10 倍」。
-  Cloud Monitoring 有 anomaly detection alert policy，可以加。
+  `google_billing_budget` is an "absolute amount"; it cannot detect "spend in this period suddenly grew 10x". Cloud Monitoring has anomaly detection alert policies that could be added.
 
-- [ ] **Terraform import 既有資源**
-  若手動在 console 建過東西，跑 `terraform import` 收進來，避免下次 apply 衝突。
+- [ ] **Terraform import of existing resources**
+  If you ever created something manually in the console, run `terraform import` to pull it in and avoid future apply conflicts.
 
-- [ ] **`gcloud beta` → `gcloud`**
-  `bootstrap.ps1` 用了 `gcloud beta billing`；之後 GA 之後改回主命令。
+- [ ] **`gcloud beta` -> `gcloud`**
+  `bootstrap.ps1` uses `gcloud beta billing`; switch back to the main command once the API GAs.
 
 ---
 
-## 疑難排解
+## Troubleshooting
 
-| 症狀 | 可能原因 |
+| Symptom | Likely cause |
 | --- | --- |
-| `Error: Failed to retrieve credentials` (TFC plan) | TFC workspace 沒設 `TFC_GCP_*` 環境變數，或 bootstrap 沒綁定 WIF principal |
-| `Error: googleapi: Error 403: Permission ...` | `tfc-runner` SA 缺權限。最快：`roles/owner`；正確：找出對應 role 補上 |
-| `Error: Resource ... already exists` (第一次 apply) | 該資源在 console 手動建過。`terraform import` 收進來 |
-| `Cloud Run service 503 突然全掛` | **可能是 kill switch 觸發了！** 看 Cloud Logging → `resource.type="cloud_run_revision"` 與 billing-killer function log |
-| `Identity Platform: PROJECT_NOT_FOUND` | `auth` module 在 `google_identity_platform_config` 失敗，需先在 console 啟用一次 Identity Platform（$0） |
-| `Error: required field is not set` (provider) | `gcp_billing_account` 沒填，或 `validation` regex 不對 |
+| `Error: Failed to retrieve credentials` (TFC plan) | The TFC workspace is missing the `TFC_GCP_*` env vars, or bootstrap never bound the WIF principal |
+| `Error: googleapi: Error 403: Permission ...` | The `tfc-runner` SA is missing a role. Quickest: `roles/owner`; correct: find the matching role and add it |
+| `Error: Resource ... already exists` (first apply) | The resource was created manually in the console. Pull it in with `terraform import` |
+| `Cloud Run service suddenly all-503` | **Possibly the kill switch fired!** Check Cloud Logging -> `resource.type="cloud_run_revision"` and the billing-killer function log |
+| `Identity Platform: PROJECT_NOT_FOUND` | The `auth` module fails on `google_identity_platform_config`; enable Identity Platform once in the console first ($0) |
+| `Error: required field is not set` (provider) | `gcp_billing_account` is empty, or the `validation` regex does not match |
 
 ---
 
-## 參考資料
+## References
 
 - [HCP TFC Dynamic Credentials with GCP](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/dynamic-provider-credentials/gcp-configuration)
 - [Cap project costs by automatically disabling Cloud Billing](https://cloud.google.com/billing/docs/how-to/disable-billing-with-notifications)

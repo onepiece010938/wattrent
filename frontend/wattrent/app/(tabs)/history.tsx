@@ -38,7 +38,7 @@ export default function HistoryScreen() {
       setBills(billsData);
     } catch (error) {
       console.error(t('history.loadBillsFailed'), error);
-      // 如果 API 連線失敗，使用模擬資料
+      // If the API call fails, fall back to mock data
       const mockBills: Bill[] = [
         {
           id: '1',
@@ -86,7 +86,7 @@ export default function HistoryScreen() {
       });
 
       if (result.action === Share.sharedAction) {
-        // TODO: 更新帳單已分享狀態
+        // TODO: update bill shared status
       }
     } catch (error) {
       Alert.alert(t('common.error'), t('history.cannotShareMessage'));
@@ -139,7 +139,7 @@ export default function HistoryScreen() {
       );
       setBills(updatedBills);
 
-      // 如果標記為已匯款，更新前次電表度數
+      // If marking as paid, update the previous meter reading
       if (isMarkingAsPaid) {
         try {
           await settingsService.updatePreviousMeterReading(bill.meterReading);

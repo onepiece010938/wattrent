@@ -26,7 +26,7 @@ export default function CaptureScreen() {
   const cameraRef = useRef<CameraView>(null);
   const { isDarkColorScheme } = useColorScheme();
   const { t, currentLanguage } = useTranslation();
-  // currentLanguage 只在顯示層使用；period 一律以 YYYY-MM 送 backend
+  // currentLanguage is only used for display; period is always sent to backend as YYYY-MM
   void currentLanguage;
   
   const [permission, requestPermission] = useCameraPermissions();
@@ -44,13 +44,13 @@ export default function CaptureScreen() {
     loadSettings();
   }, []);
 
-  // 處理頁面焦點變化
+  // Handle screen-focus changes
   useFocusEffect(
     React.useCallback(() => {
       setIsScreenFocused(true);
       setIsCameraReady(false);
       
-      // 延遲一點時間讓相機重新初始化
+      // Small delay so the camera can re-initialise
       const timer = setTimeout(() => {
         setIsCameraReady(true);
       }, 100);
@@ -115,7 +115,7 @@ export default function CaptureScreen() {
 
   const processImage = async (imageBase64: string | null) => {
     if (!imageBase64) {
-      // 拿不到 base64 時跳過 OCR，讓使用者手動輸入
+      // No base64 -> skip OCR and let the user input manually
       return;
     }
     setProcessing(true);
@@ -180,7 +180,7 @@ export default function CaptureScreen() {
     setIsCameraReady(false);
     setFacing(facing === 'back' ? 'front' : 'back');
     
-    // 延遲一點時間讓相機重新初始化
+    // Small delay so the camera can re-initialise
     setTimeout(() => {
       setIsCameraReady(true);
     }, 100);
@@ -324,7 +324,7 @@ export default function CaptureScreen() {
     );
   }
 
-  // 只有在頁面聚焦且相機準備好時才顯示相機
+  // Only render the camera when the screen is focused and the camera is ready
   if (!isScreenFocused || !isCameraReady) {
     return (
       <SafeAreaView className="flex-1 bg-black" edges={['top', 'bottom']}>
@@ -347,7 +347,7 @@ export default function CaptureScreen() {
           onCameraReady={() => setIsCameraReady(true)}
         />
         
-        {/* 相機控制按鈕 - 使用絕對定位 */}
+        {/* Camera controls - absolutely positioned */}
         <View className="absolute top-0 right-0 p-5 pt-12">
           <TouchableOpacity
             className="bg-black/30 rounded-full p-3"

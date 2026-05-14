@@ -1,4 +1,4 @@
-// Package middleware 提供 Gin middleware：CORS、auth、error handling。
+// Package middleware provides Gin middlewares: CORS, auth, error handling.
 package middleware
 
 import (
@@ -15,21 +15,22 @@ import (
 	"wattrent/internal/models"
 )
 
-// ContextKey gin.Context 的 key 集中宣告
+// ContextKey: gin.Context keys are declared centrally here.
 const (
 	ContextKeyUID   = "auth.uid"
 	ContextKeyEmail = "auth.email"
 )
 
-// Auth Firebase ID token 驗證 middleware。
+// Auth is the Firebase ID-token verification middleware.
 //
-// 流程：
-//  1. 讀 Authorization: Bearer <token>
-//  2. 用 Firebase Admin SDK 驗 token（自動 verify signature + 過期）
-//  3. 把 uid / email 塞進 gin.Context
-//  4. handler 用 GetUID(c) 取出
+// Flow:
+//  1. Read Authorization: Bearer <token>.
+//  2. Verify the token via the Firebase Admin SDK (signature + expiration).
+//  3. Stash uid / email into the gin.Context.
+//  4. Handlers read it via GetUID(c).
 //
-// AuthBypass=true 時跳過驗證，使用 cfg.AuthBypassUID。僅供本地開發。
+// When AuthBypass=true, verification is skipped and cfg.AuthBypassUID is used.
+// LOCAL DEVELOPMENT ONLY.
 func Auth(authClient *firebaseauth.Client, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if cfg.AuthBypass {
@@ -64,18 +65,20 @@ func Auth(authClient *firebaseauth.Client, cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
-// GetUID 從 gin.Context 取出已驗證的 uid。
-// 必須在 Auth middleware 之後呼叫；若未驗證會直接 panic（程式 bug）。
+// GetUID reads the verified uid out of the gin.Context.
+// Must be called after the Auth middleware; it panics if Auth is missing
+// (which is a programming bug).
 func GetUID(c *gin.Context) string {
 	uid := c.GetString(ContextKeyUID)
 	if uid == "" {
-		// Auth middleware 一定會 abort，能走到這裡代表 router 沒掛 Auth
+		// Auth middleware would have aborted, so reaching this point means
+		// the router never installed Auth.
 		panic("middleware.GetUID called without Auth middleware")
 	}
 	return uid
 }
 
-// GetEmail 從 gin.Context 取出 email（可能為空）。
+// GetEmail reads the email out of the gin.Context (may be empty).
 func GetEmail(c *gin.Context) string {
 	return c.GetString(ContextKeyEmail)
 }

@@ -2,13 +2,15 @@ rules_version = '2';
 
 // WattRent Firestore Security Rules
 //
-// 設計原則：
-//   1. 一律走 Firebase Auth，未認證一律拒絕
-//   2. 使用者只能讀寫自己 /users/{uid}/... 之下的資料
-//   3. 寫入做最小驗證（型別、必填、值域）；複雜邏輯由後端 Admin SDK 處理
-//   4. 後端 Cloud Run service account 使用 Admin SDK 會繞過這些 rules
+// Design principles:
+//   1. Always go through Firebase Auth; reject everything unauthenticated.
+//   2. Users can only read/write their own data under /users/{uid}/...
+//   3. Writes do minimal validation (types, required fields, value ranges);
+//      complex logic is handled by the backend Admin SDK.
+//   4. The backend Cloud Run service account uses the Admin SDK and
+//      bypasses these rules.
 //
-// 詳細設計請見 docs/firestore-schema.md
+// See docs/firestore-schema.md for the full design.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -36,19 +38,19 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isOwner(userId);
 
-      // 第一次登入時建立，必須與 Auth token 對齊
+      // Created on first sign-in; must match the Auth token
       allow create: if isOwner(userId)
                     && request.resource.data.email == request.auth.token.email
                     && request.resource.data.createdAt == request.time
                     && request.resource.data.updatedAt == request.time;
 
-      // 不允許改 email / createdAt
+      // email / createdAt are immutable
       allow update: if isOwner(userId)
                     && request.resource.data.email == resource.data.email
                     && request.resource.data.createdAt == resource.data.createdAt
                     && request.resource.data.updatedAt == request.time;
 
-      // 刪除帳號走後端流程（軟刪除）
+      // Account deletion goes through the backend (soft delete)
       allow delete: if false;
 
       // ─────── /users/{userId}/settings/{docId} ───────
@@ -77,14 +79,15 @@ service cloud.firestore {
                       && request.resource.data.createdAt == request.time
                       && request.resource.data.updatedAt == request.time;
 
-        // 從 client 端只允許更新 paidAt + updatedAt（標記已付款）
-        // 其他欄位修改要走後端 Admin SDK
+        // From the client, only paidAt + updatedAt may be modified
+        // (mark-as-paid). All other field changes must go through the
+        // backend Admin SDK.
         allow update: if isOwner(userId)
                       && request.resource.data.diff(resource.data)
                           .affectedKeys()
                           .hasOnly(['paidAt', 'updatedAt']);
 
-        // 已付款的 bill 不能刪
+        // Paid bills cannot be deleted
         allow delete: if isOwner(userId)
                       && resource.data.paidAt == null;
       }

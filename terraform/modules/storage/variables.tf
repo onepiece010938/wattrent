@@ -4,12 +4,12 @@ variable "project_id" {
 }
 
 variable "bucket_name" {
-  description = "GCS bucket 名稱（全域唯一）"
+  description = "GCS bucket name (must be globally unique)"
   type        = string
 }
 
 variable "location" {
-  description = "Bucket 位置；建議 single-region 省錢"
+  description = "Bucket location; single-region recommended for cost"
   type        = string
 }
 

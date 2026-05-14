@@ -11,7 +11,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
 
-  // 計算正確的底部導航高度
+  // Compute the correct bottom navigation height
   const tabBarHeight = Platform.select({
     ios: 49 + insets.bottom,
     android: 60 + insets.bottom,

@@ -1,12 +1,12 @@
 // Cloud Run entry point.
 //
-// 啟動順序：
-//  1. config.Load 讀環境變數
-//  2. clients.New 建 Firestore / Storage / Gemini（AI Studio 或 Vertex） / Firebase Auth
-//  3. services 注入 client
-//  4. handlers 注入 service
+// Startup order:
+//  1. config.Load reads environment variables
+//  2. clients.New builds Firestore / Storage / Gemini (AI Studio or Vertex) / Firebase Auth
+//  3. services receive their clients
+//  4. handlers receive their services
 //  5. router + middleware
-//  6. graceful shutdown：收到 SIGINT / SIGTERM 後等請求結束才退出
+//  6. graceful shutdown: on SIGINT / SIGTERM, wait for in-flight requests before exiting
 package main
 
 import (
@@ -28,7 +28,7 @@ import (
 	"wattrent/internal/services"
 )
 
-// version 由 build flag 注入：-ldflags "-X main.version=$SHA"
+// version is injected by build flag: -ldflags "-X main.version=$SHA"
 var version = "dev"
 
 func main() {
@@ -107,7 +107,7 @@ func buildRouter(
 	r.Use(middleware.CORS(cfg))
 	r.Use(middleware.ErrorHandler())
 
-	// Cloud Run health check（不需 auth）
+	// Cloud Run health check (no auth required)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "version": version})
 	})
@@ -123,7 +123,7 @@ func buildRouter(
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "version": version})
 	})
 
-	// 以下全部需要 auth
+	// Everything below requires auth
 	authed := api.Group("")
 	authed.Use(middleware.Auth(cls.Auth, cfg))
 	{
@@ -142,7 +142,7 @@ func buildRouter(
 		bills.PUT("/:id/payment", billHandler.UpdatePayment)
 		bills.DELETE("/:id", billHandler.Delete)
 
-		// Settings（不再帶 :userId，uid 從 token）
+		// Settings (no longer takes :userId; uid comes from the token)
 		settings := authed.Group("/settings")
 		settings.GET("", settingsHandler.Get)
 		settings.PUT("", settingsHandler.Save)

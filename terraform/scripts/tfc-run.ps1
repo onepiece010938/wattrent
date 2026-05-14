@@ -1,23 +1,23 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-  直接用 TFC REST API 上傳 terraform/ 目錄並觸發 remote plan/apply。
-  在本地網路無法穩定 reach registry/releases.hashicorp.com 時，可繞過 terraform CLI。
+  Upload the terraform/ directory directly via the TFC REST API and trigger a remote plan/apply.
+  Useful as a workaround when local network connectivity to registry/releases.hashicorp.com is flaky.
 
 .PARAMETER Workspace
-  TFC workspace 名（例：wattrent-staging）
+  TFC workspace name (e.g. wattrent-staging)
 
 .PARAMETER Action
-  plan / apply / plan-only。預設 plan-only（看 plan，不會 apply）
+  plan / apply / plan-only. Defaults to plan-only (run plan only, no apply).
 
 .PARAMETER Message
-  Run 的描述
+  Run description.
 
 .PARAMETER Organization
-  TFC 組織，預設 wattrent
+  TFC organization; defaults to wattrent.
 
 .PARAMETER TfcHost
-  TFC host，預設 app.terraform.io
+  TFC host; defaults to app.terraform.io.
 #>
 
 [CmdletBinding()]
@@ -28,7 +28,7 @@ Param(
   [string]$Organization = "wattrent",
   [string]$TfcHost = "app.terraform.io",
   [string]$Token,
-  # 預設從 workspace 名推 env：wattrent-staging → staging、wattrent-production → production
+  # Defaults to deriving env from the workspace name: wattrent-staging -> staging, wattrent-production -> production.
   [string]$EnvName
 )
 
@@ -38,7 +38,7 @@ function Step($m) { Write-Host "==> $m" -ForegroundColor Cyan }
 function Done($m) { Write-Host "    $m" -ForegroundColor Green }
 function Info($m) { Write-Host "    $m" -ForegroundColor DarkGray }
 
-# ── 1. token ─────────────────────────────────────────────────────
+# -- 1. token --------------------------------------------------------
 if (-not $Token) { $Token = $env:TFC_TOKEN }
 if (-not $Token) {
   $credPath = Join-Path $env:APPDATA "terraform.d\credentials.tfrc.json"
@@ -52,35 +52,35 @@ if (-not $Token) { throw "No TFC token. Run 'terraform login' first." }
 $baseUrl = "https://$TfcHost/api/v2"
 $jsonHeaders = @{ "Authorization" = "Bearer $Token"; "Content-Type" = "application/vnd.api+json" }
 
-# ── 2. 找 workspace id ───────────────────────────────────────────
-Step "查詢 workspace $Organization/$Workspace"
+# -- 2. Look up the workspace id -------------------------------------
+Step "Look up workspace $Organization/$Workspace"
 $ws = Invoke-RestMethod -Uri "$baseUrl/organizations/$Organization/workspaces/$Workspace" -Headers $jsonHeaders
 $workspaceId = $ws.data.id
 Done "workspace id = $workspaceId"
 
-# ── 3. 把 terraform/ 打包成 tar.gz ──────────────────────────────
-$repoRoot = Split-Path -Parent $PSScriptRoot   # scripts/ 的上層 = terraform/
-# scripts 在 terraform/scripts/，所以 repoRoot = terraform/
+# -- 3. Pack terraform/ into a tar.gz --------------------------------
+$repoRoot = Split-Path -Parent $PSScriptRoot   # parent of scripts/ = terraform/
+# scripts lives at terraform/scripts/, so repoRoot = terraform/
 $tfDir = $repoRoot
 
-# 推 env 名（給 tfvars 命名用）
+# Derive the env name (used for the tfvars filename).
 if (-not $EnvName) {
   if ($Workspace -match "^wattrent-(.+)$") { $EnvName = $Matches[1] }
   else { $EnvName = "staging" }
 }
 $tfvarsSrc = Join-Path $tfDir "envs/$EnvName.tfvars"
 if (-not (Test-Path $tfvarsSrc)) {
-  throw "找不到 var-file: $tfvarsSrc"
+  throw "var-file not found: $tfvarsSrc"
 }
-Info "env = $EnvName, tfvars = envs/$EnvName.tfvars (會打包成 terraform.auto.tfvars)"
+Info "env = $EnvName, tfvars = envs/$EnvName.tfvars (will be packed as terraform.auto.tfvars)"
 
-Step "打包 $tfDir"
+Step "Pack $tfDir"
 
 $tmpStage = Join-Path $env:TEMP "tfc-stage-$(Get-Random)"
 $tmp = Join-Path $env:TEMP "tfc-cv-$(Get-Random).tar.gz"
 New-Item -ItemType Directory -Path $tmpStage -Force | Out-Null
 try {
-  # robocopy 不會跟著 .terraform 等不必要目錄。/MIR 同步整個 tfDir
+  # robocopy will not follow .terraform and similar directories. /MIR mirrors the entire tfDir.
   $rcArgs = @(
     "$tfDir", "$tmpStage", "/E",
     "/XD", ".terraform", "scripts", ".build",
@@ -88,13 +88,13 @@ try {
     "/NFL", "/NDL", "/NJH", "/NJS", "/NP"
   )
   & robocopy @rcArgs | Out-Null
-  # robocopy exit code 0~7 都是成功（>=8 才算錯）
+  # robocopy exit codes 0-7 are all success (>=8 means error)
   if ($LASTEXITCODE -ge 8) { throw "robocopy failed (exit $LASTEXITCODE)" }
   $global:LASTEXITCODE = 0
 
-  # 把 envs/$Env.tfvars 額外複製成 terraform.auto.tfvars（TFC remote 會自動載入）
+  # Copy envs/$Env.tfvars into the staging dir as terraform.auto.tfvars (TFC remote loads it automatically).
   Copy-Item -Path $tfvarsSrc -Destination (Join-Path $tmpStage "terraform.auto.tfvars") -Force
-  # envs/*.local.tfvars 不該打包
+  # envs/*.local.tfvars must NOT be packaged.
   Get-ChildItem -Path (Join-Path $tmpStage "envs") -Filter "*.local.tfvars" -ErrorAction SilentlyContinue | Remove-Item -Force
 
   Push-Location $tmpStage
@@ -108,8 +108,8 @@ try {
 $size = (Get-Item $tmp).Length
 Done "$tmp ($([math]::Round($size/1KB,1)) KB)"
 
-# ── 4. 建 configuration version ───────────────────────────────
-Step "建立 configuration version"
+# -- 4. Create the configuration version -----------------------------
+Step "Create configuration version"
 $cvBody = @{
   data = @{
     type = "configuration-versions"
@@ -124,15 +124,15 @@ $cvId = $cvResp.data.id
 $uploadUrl = $cvResp.data.attributes."upload-url"
 Done "cv id = $cvId"
 
-# ── 5. 上傳 tarball ──────────────────────────────────────────
-Step "上傳 tar.gz 到 TFC"
-# upload-url 是 pre-signed S3，要 PUT raw bytes，不要 vnd.api+json
+# -- 5. Upload the tarball -------------------------------------------
+Step "Upload tar.gz to TFC"
+# upload-url is a pre-signed S3 URL; PUT raw bytes, NOT vnd.api+json.
 Invoke-WebRequest -Method PUT -Uri $uploadUrl -InFile $tmp -ContentType "application/octet-stream" -UseBasicParsing | Out-Null
-Done "上傳完成"
+Done "Upload complete"
 Remove-Item $tmp -Force
 
-# ── 6. 建 run ──────────────────────────────────────────────
-Step "建立 run（$Action）"
+# -- 6. Create the run -----------------------------------------------
+Step "Create run ($Action)"
 $autoApply = ($Action -eq "plan-and-apply")
 $runBody = @{
   data = @{
@@ -153,15 +153,15 @@ $runResp = Invoke-RestMethod -Method POST -Uri "$baseUrl/runs" -Headers $jsonHea
 $runId = $runResp.data.id
 Done "run id = $runId"
 
-# ── 7. Poll 進度 ────────────────────────────────────────────
+# -- 7. Poll progress ------------------------------------------------
 $runUrl = "https://$TfcHost/app/$Organization/workspaces/$Workspace/runs/$runId"
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Green
-Write-Host " Run 已送出" -ForegroundColor Green
+Write-Host "===================================================================" -ForegroundColor Green
+Write-Host " Run submitted" -ForegroundColor Green
 Write-Host " UI: $runUrl" -ForegroundColor Cyan
-Write-Host "═══════════════════════════════════════════════════════════════════" -ForegroundColor Green
+Write-Host "===================================================================" -ForegroundColor Green
 Write-Host ""
-Write-Host "等待 plan 完成..." -ForegroundColor DarkGray
+Write-Host "Waiting for the plan to finish..." -ForegroundColor DarkGray
 
 $lastStatus = ""
 $terminalStatuses = @(
@@ -189,15 +189,15 @@ while ($true) {
   if ($planFinishedStatuses -contains $status) { break }
 }
 
-# ── 8. 拉 plan log ─────────────────────────────────────────
+# -- 8. Pull the plan log --------------------------------------------
 $planId = $r.data.relationships.plan.data.id
-Step "下載 plan log"
+Step "Download plan log"
 $planResp = Invoke-RestMethod -Uri "$baseUrl/plans/$planId" -Headers $jsonHeaders
 $logUrl = $planResp.data.attributes."log-read-url"
 $log = Invoke-WebRequest -Uri $logUrl -UseBasicParsing
 Write-Host ""
-Write-Host "─── plan log ─────────────────────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "--- plan log -----------------------------------------------------" -ForegroundColor DarkCyan
 Write-Host $log.Content
-Write-Host "──────────────────────────────────────────────────────────────" -ForegroundColor DarkCyan
+Write-Host "------------------------------------------------------------------" -ForegroundColor DarkCyan
 Write-Host ""
 Write-Host "Run UI: $runUrl" -ForegroundColor Cyan

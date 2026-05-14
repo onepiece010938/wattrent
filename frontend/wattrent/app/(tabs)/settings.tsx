@@ -19,7 +19,7 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage, getCurrentLanguage } from '@/lib/i18n';
 
-// 系統預設值定義
+// System default settings
 const SYSTEM_DEFAULT_SETTINGS: UserSettings = {
   defaultElectricityRate: 4.5,
   defaultRent: 8000,
@@ -46,10 +46,10 @@ export default function SettingsScreen() {
     paymentMethod: t('paymentMethods.bankTransfer'),
   });
   
-  // 為電費單價建立獨立的字串狀態
+  // Independent string state for the electricity rate
   const [electricityRateText, setElectricityRateText] = useState('4.5');
-  
-  // 語言設定狀態
+
+  // Language settings state
   const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage>(currentLanguage);
   
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -63,7 +63,7 @@ export default function SettingsScreen() {
   const [shouldReloadSettings, setShouldReloadSettings] = useState(true);
   const [isLeavingPage, setIsLeavingPage] = useState(false);
 
-  // 使用 ref 來存儲最新狀態，供離開頁面時檢查使用
+  // Use a ref to keep the latest state, used when leaving the page
   const latestStateRef = useRef({
     settings,
     electricityRateText,
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
     isLeavingPage
   });
 
-  // 更新 ref 中的狀態
+  // Sync the ref with the latest state
   useEffect(() => {
     latestStateRef.current = {
       settings,
@@ -108,7 +108,7 @@ export default function SettingsScreen() {
     { label: t('languages.en'), value: 'en' as SupportedLanguage },
   ];
 
-  // 獲取當前是否有變更（使用傳入的狀態或當前狀態）
+  // Compute whether there are unsaved changes (using the supplied state or the current state)
   const getCurrentHasChanges = (stateToCheck?: typeof latestStateRef.current) => {
     const state = stateToCheck || latestStateRef.current;
     if (!state.initialSettings) return false;
@@ -126,50 +126,50 @@ export default function SettingsScreen() {
     return hasChanges;
   };
 
-  // 使用 useEffect 來處理頁面載入
+  // useEffect for first page load
   useEffect(() => {
-    console.log('設定頁面載入');
-    loadSettings(true); // 首次載入時強制重新載入
+    console.log('settings page loaded');
+    loadSettings(true); // Force reload on first load
   }, []);
 
-  // 使用 useFocusEffect 來處理頁面聚焦和失焦
+  // useFocusEffect for focus / blur handling
   useFocusEffect(
     React.useCallback(() => {
-      console.log('設定頁面聚焦');
-      setIsLeavingPage(false); // 重置離開狀態
-      
-      // 滾動到頂部
+      console.log('settings page focused');
+      setIsLeavingPage(false); // Reset the leaving flag
+
+      // Scroll to top
       setTimeout(() => {
         scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       }, 100);
 
-      // 返回清理函數，在頁面失去焦點時執行（即將切換到其他tab）
+      // Cleanup runs when the page loses focus (about to switch to another tab)
       return () => {
-        console.log('設定頁面即將失去焦點，檢查變更...');
-        
-        // 設置離開狀態
+        console.log('settings page about to lose focus, checking changes...');
+
+        // Mark as leaving
         setIsLeavingPage(true);
-        
-        // 立即檢查是否有未儲存變更
+
+        // Immediately check whether there are unsaved changes
         const currentState = latestStateRef.current;
         const currentHasChanges = getCurrentHasChanges(currentState);
-        
-        console.log('立即檢查失焦狀態:', {
+
+        console.log('immediate blur state check:', {
           currentHasChanges,
           isCheckingUnsavedChanges: currentState.isCheckingUnsavedChanges,
           isLeavingPage: currentState.isLeavingPage
         });
-        
+
         if (currentHasChanges && !currentState.isCheckingUnsavedChanges) {
-          // 立即顯示警告，不使用延遲
-          console.log('立即顯示離開頁面警告');
+          // Show the warning immediately, no delay
+          console.log('showing leave-page warning');
           showLeavePageWarning();
         }
       };
-    }, []) // 空依賴陣列避免重複註冊
+    }, []) // Empty dependency array to avoid re-registering
   );
 
-  // 顯示離開頁面警告的函數
+  // Function that displays the leave-page warning
   const showLeavePageWarning = () => {
     setIsCheckingUnsavedChanges(true);
     
@@ -181,27 +181,27 @@ export default function SettingsScreen() {
           text: t('settings.discardChanges'),
           style: 'destructive',
           onPress: async () => {
-            console.log('用戶選擇放棄變更');
+            console.log('user chose to discard changes');
             setIsCheckingUnsavedChanges(false);
             setIsLeavingPage(false);
-            // 恢復到上次儲存的狀態，而不是重新載入
+            // Restore to the last saved state instead of reloading
             await restoreToLastSavedState();
           },
         },
         {
           text: t('settings.saveAndLeave'),
           onPress: async () => {
-            console.log('用戶選擇儲存並離開');
+            console.log('user chose to save and leave');
             setIsCheckingUnsavedChanges(true);
             try {
-              // 使用共用的儲存邏輯
+              // Use the shared save logic
               await performSave();
-              
-              console.log('儲存成功，語言變更已生效，允許離開');
+
+              console.log('save succeeded, language change applied, leaving allowed');
               setIsLeavingPage(false);
-              // 儲存成功後不需要特別處理，用戶已經在其他頁面了
+              // After a successful save no special handling is needed; the user is already on another page
             } catch (error) {
-              console.error('儲存設定失敗:', error);
+              console.error('save settings failed:', error);
               setIsCheckingUnsavedChanges(false);
               setIsLeavingPage(false);
               Alert.alert(
@@ -211,7 +211,7 @@ export default function SettingsScreen() {
                   {
                     text: t('common.confirm'),
                     onPress: () => {
-                      // 儲存失敗時強制回到設定頁面
+                      // On save failure, force the user back to the settings page
                       router.replace('/(tabs)/settings');
                     }
                   }
@@ -224,7 +224,7 @@ export default function SettingsScreen() {
       { 
         cancelable: false,
         onDismiss: () => {
-          // 如果對話框被意外關閉，重置狀態
+          // If the dialog is dismissed unexpectedly, reset the state
           setIsCheckingUnsavedChanges(false);
           setIsLeavingPage(false);
         }
@@ -232,10 +232,10 @@ export default function SettingsScreen() {
     );
   };
 
-  // 恢復到上次儲存的狀態或從後端重新獲取
+  // Restore to the last saved state, or refetch from the backend
   const restoreToLastSavedState = async () => {
-    console.log('開始恢復設定...');
-    console.log('當前設定:', {
+    console.log('starting to restore settings...');
+    console.log('current settings:', {
       settings,
       electricityRateText,
       selectedLanguage,
@@ -245,53 +245,53 @@ export default function SettingsScreen() {
     });
     
     try {
-      // 優先從後端重新獲取最新的儲存值
-      console.log('從後端重新獲取最新的儲存設定...');
+      // Prefer fetching the freshest saved settings from the backend
+      console.log('refetching latest saved settings from backend...');
       const latestSavedSettings = await settingsService.getSettings();
-      console.log('從後端獲取的最新儲存設定:', latestSavedSettings);
-      
-      // 恢復到從後端獲取的設定
+      console.log('latest saved settings from backend:', latestSavedSettings);
+
+      // Restore to whatever the backend returned
       setSettings({...latestSavedSettings});
       setElectricityRateText(latestSavedSettings.defaultElectricityRate.toString());
       setInitialSettings({...latestSavedSettings});
-      
-      // 恢復語言設定
+
+      // Restore the language setting
       setSelectedLanguage(initialLanguage);
-      
-      // 恢復通知和備份設定
+
+      // Restore notification and backup settings
       if (initialNotifications !== null && initialAutoBackup !== null) {
         setNotificationsEnabled(initialNotifications);
         setAutoBackup(initialAutoBackup);
-        console.log('恢復到之前的通知設定:', { initialNotifications, initialAutoBackup });
+        console.log('restored previous notification settings:', { initialNotifications, initialAutoBackup });
       } else {
-        // 如果沒有初始通知設定，使用預設值
+        // No initial notification settings; fall back to defaults
         setNotificationsEnabled(DEFAULT_NOTIFICATIONS);
         setAutoBackup(DEFAULT_AUTO_BACKUP);
         setInitialNotifications(DEFAULT_NOTIFICATIONS);
         setInitialAutoBackup(DEFAULT_AUTO_BACKUP);
-        console.log('使用預設通知設定');
+        console.log('using default notification settings');
       }
-      
-      console.log('已恢復到後端最新儲存的狀態');
-      
+
+      console.log('restored to the latest backend-saved state');
+
     } catch (error) {
-      console.error('從後端獲取設定失敗，嘗試使用本地初始設定:', error);
-      
-      // 如果API失敗，嘗試使用本地的初始設定
+      console.error('failed to fetch settings from backend, falling back to local initial settings:', error);
+
+      // If the API failed, try the local initial settings
       if (initialSettings) {
-        console.log('使用本地初始設定:', initialSettings);
-        
+        console.log('using local initial settings:', initialSettings);
+
         setSettings({...initialSettings});
         setElectricityRateText(initialSettings.defaultElectricityRate.toString());
         setSelectedLanguage(initialLanguage);
         setNotificationsEnabled(initialNotifications);
         setAutoBackup(initialAutoBackup);
-        
-        console.log('已恢復到本地初始設定');
+
+        console.log('restored to local initial settings');
       } else {
-        // 最後手段：使用系統預設值
-        console.log('沒有本地初始設定，使用系統預設值:', SYSTEM_DEFAULT_SETTINGS);
-        
+        // Last resort: use the system defaults
+        console.log('no local initial settings; using system defaults:', SYSTEM_DEFAULT_SETTINGS);
+
         setSettings({...SYSTEM_DEFAULT_SETTINGS});
         setElectricityRateText(SYSTEM_DEFAULT_SETTINGS.defaultElectricityRate.toString());
         setSelectedLanguage(DEFAULT_LANGUAGE);
@@ -301,51 +301,51 @@ export default function SettingsScreen() {
         setInitialNotifications(DEFAULT_NOTIFICATIONS);
         setInitialAutoBackup(DEFAULT_AUTO_BACKUP);
         setInitialLanguage(DEFAULT_LANGUAGE);
-        
-        console.log('已恢復到系統預設值');
+
+        console.log('restored to system defaults');
       }
     }
-    
+
     setHasChanges(false);
     setIsCheckingUnsavedChanges(false);
-    setShouldReloadSettings(false); // 防止頁面重新聚焦時重新載入設定
-    
-    console.log('恢復完成，已設定為不重新載入設定');
+    setShouldReloadSettings(false); // Prevent settings from being reloaded the next time the page focuses
+
+    console.log('restore complete; reload-on-focus disabled');
   };
 
   const loadSettings = async (forceReload: boolean = false) => {
     if (!shouldReloadSettings && !forceReload) {
-      console.log('跳過重新載入設定，保持當前恢復的狀態');
+      console.log('skipping settings reload to keep the restored state');
       return;
     }
-    
+
     try {
       const loadedSettings = await settingsService.getSettings();
-      console.log('載入的設定:', loadedSettings);
-      
+      console.log('loaded settings:', loadedSettings);
+
       setSettings(loadedSettings);
       setElectricityRateText(loadedSettings.defaultElectricityRate.toString());
       setInitialSettings({...loadedSettings});
-      
-      // 設定語言初始值
+
+      // Initialise the language
       setSelectedLanguage(currentLanguage);
       setInitialLanguage(currentLanguage);
-      
-      // 重要：在載入設定後，記錄當前的通知和備份設定作為初始值
+
+      // Important: capture the current notification/backup settings as initial values after loading
       setInitialNotifications(notificationsEnabled);
       setInitialAutoBackup(autoBackup);
       setHasChanges(false);
       setIsCheckingUnsavedChanges(false);
-      setShouldReloadSettings(true); // 設定載入後允許下次重新載入
-      
-      console.log('設定初始狀態:', {
+      setShouldReloadSettings(true); // Allow reloading on subsequent focuses
+
+      console.log('initial state set:', {
         loadedSettings,
         currentLanguage,
         notificationsEnabled,
         autoBackup
       });
-      
-      // 重置滾動位置
+
+      // Reset scroll position
       setTimeout(() => {
         scrollViewRef.current?.scrollTo({ y: 0, animated: false });
       }, 100);
@@ -354,11 +354,11 @@ export default function SettingsScreen() {
     }
   };
 
-  // 監聽設定變更
+  // Watch for setting changes
   useEffect(() => {
     if (initialSettings && !isCheckingUnsavedChanges) {
       const currentHasChanges = getCurrentHasChanges();
-      console.log('監聽設定變更:', {
+      console.log('settings changed:', {
         currentHasChanges,
         hasChanges,
         currentSettings: settings,
@@ -373,53 +373,53 @@ export default function SettingsScreen() {
     }
   }, [settings.defaultRent, settings.previousMeterReading, settings.landlordName, settings.paymentMethod, electricityRateText, selectedLanguage, notificationsEnabled, autoBackup]);
 
-  // 共用的儲存邏輯
+  // Shared save logic
   const performSave = async (stateToSave?: typeof latestStateRef.current) => {
     const currentState = stateToSave || latestStateRef.current;
-    
-    // 構建要儲存的設定
+
+    // Build the settings object to save
     const finalSettings = {
       ...currentState.settings,
       defaultElectricityRate: parseFloat(currentState.electricityRateText) || 0
     };
-    
-    console.log('執行儲存設定:', finalSettings);
-    console.log('準備變更語言到:', currentState.selectedLanguage);
-    
-    // 儲存設定到後端
+
+    console.log('saving settings:', finalSettings);
+    console.log('about to change language to:', currentState.selectedLanguage);
+
+    // Save settings to the backend
     await settingsService.saveSettings(finalSettings);
-    
-    // 如果語言有變更，則應用語言變更
+
+    // If the language changed, apply it
     if (currentState.selectedLanguage !== currentState.initialLanguage) {
-      console.log('應用語言變更:', currentState.selectedLanguage);
+      console.log('applying language change:', currentState.selectedLanguage);
       await changeLanguage(currentState.selectedLanguage);
       setInitialLanguage(currentState.selectedLanguage);
-      console.log('語言變更完成，當前語言:', getCurrentLanguage());
+      console.log('language change complete; current language:', getCurrentLanguage());
     }
-    
-    // 驗證儲存並使用實際儲存的值作為新的初始設定
+
+    // Verify what was saved and use the actual stored values as the new initial settings
     const savedSettings = await settingsService.getSettings();
-    console.log('驗證儲存後的設定:', savedSettings);
-    
-    // 使用從API返回的實際儲存值，而不是本地的finalSettings
+    console.log('verified post-save settings:', savedSettings);
+
+    // Use the actual stored values returned from the API instead of the local finalSettings
     setSettings(savedSettings);
     setElectricityRateText(savedSettings.defaultElectricityRate.toString());
     setInitialSettings({...savedSettings});
-    
-    // 也要更新當前的通知和備份設定作為新的初始值
+
+    // Also update the current notification / backup settings as the new initial values
     setInitialNotifications(currentState.notificationsEnabled);
     setInitialAutoBackup(currentState.autoBackup);
     setHasChanges(false);
     setIsCheckingUnsavedChanges(false);
-    
-    console.log('已更新初始設定為:', savedSettings);
-    console.log('通知和備份初始設定:', { 
-      notificationsEnabled: currentState.notificationsEnabled, 
-      autoBackup: currentState.autoBackup 
+
+    console.log('updated initial settings to:', savedSettings);
+    console.log('initial notification/backup settings:', {
+      notificationsEnabled: currentState.notificationsEnabled,
+      autoBackup: currentState.autoBackup
     });
-    console.log('語言初始設定:', currentState.selectedLanguage);
-    
-    return true; // 儲存成功
+    console.log('initial language setting:', currentState.selectedLanguage);
+
+    return true; // Save succeeded
   };
 
   const saveSettings = async (showSuccessAlert: boolean = true) => {
@@ -432,25 +432,25 @@ export default function SettingsScreen() {
     } catch (error) {
       console.error(t('settings.saveSettingsFailed'), error);
       Alert.alert(t('common.error'), t('settings.cannotSaveSettings'));
-      throw error; // 重新拋出錯誤以便調用者處理
+      throw error; // Re-throw so the caller can handle it
     }
   };
 
-  // 處理電費單價輸入
+  // Handle electricity rate input
   const handleElectricityRateChange = (value: string) => {
-    console.log('電費單價輸入變更:', value);
-    // 允許空字串、數字和小數點，但不立即轉換為數字
+    console.log('electricity rate input changed:', value);
+    // Allow empty string, digits and decimal points; do not parse to number yet
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       setElectricityRateText(value);
     }
   };
 
-  // 處理電費單價失去焦點 - 只更新內存中的狀態，不儲存到 AsyncStorage
+  // Handle electricity rate blur - update in-memory state only, do NOT save to AsyncStorage
   const handleElectricityRateBlur = () => {
     const numValue = parseFloat(electricityRateText) || 0;
-    console.log('電費單價失去焦點，更新內存狀態:', numValue);
+    console.log('electricity rate blurred; updating in-memory state:', numValue);
     setSettings({ ...settings, defaultElectricityRate: numValue });
-    // 如果輸入的是空字串或無效值，重置為 0
+    // If the input was empty / invalid, reset to 0
     if (!electricityRateText || isNaN(parseFloat(electricityRateText))) {
       setElectricityRateText('0');
     }
@@ -465,7 +465,7 @@ export default function SettingsScreen() {
         {
           text: t('common.confirm'),
           onPress: () => {
-            // TODO: 實作資料匯出功能
+            // TODO: implement data export
             Alert.alert(t('common.success'), t('settings.dataExported'));
           },
         },
@@ -483,7 +483,7 @@ export default function SettingsScreen() {
           text: t('common.confirm'),
           style: 'destructive',
           onPress: () => {
-            // TODO: 實作資料清除功能
+            // TODO: implement clear-all-data
             Alert.alert(t('common.success'), t('settings.allDataCleared'));
           },
         },
@@ -504,7 +504,7 @@ export default function SettingsScreen() {
             {t('settings.title')}
           </Text>
 
-          {/* 預設值設定 */}
+          {/* Default values section */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('settings.defaults')}
@@ -589,7 +589,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* 通知設定 */}
+          {/* Notification settings */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('settings.notifications')}
@@ -622,7 +622,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* 資料管理 */}
+          {/* Data management */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('settings.dataManagement')}
@@ -655,7 +655,7 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
           
-          {/* 語言設定 */}
+          {/* Language settings */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('settings.language')}
@@ -674,10 +674,10 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* 儲存和重置按鈕 */}
+          {/* Save and reset buttons */}
           <View className="mt-8 px-4">
             <View className="flex-row">
-              {/* 重置按鈕 */}
+              {/* Reset button */}
               <TouchableOpacity
                 className={`flex-1 mr-4 rounded-xl py-4 px-6 border-2 shadow-md ${
                   hasChanges 
@@ -685,7 +685,7 @@ export default function SettingsScreen() {
                     : 'bg-gray-200 dark:bg-gray-700 border-gray-300 dark:border-gray-600 opacity-60'
                 }`}
                 onPress={async () => {
-                  console.log('重置按鈕被點擊');
+                  console.log('reset button pressed');
                   await restoreToLastSavedState();
                 }}
                 disabled={!hasChanges}
@@ -716,7 +716,7 @@ export default function SettingsScreen() {
                 </View>
               </TouchableOpacity>
 
-              {/* 儲存按鈕 */}
+              {/* Save button */}
               <TouchableOpacity
                 className={`flex-1 ml-4 rounded-xl py-4 px-6 border-2 shadow-lg ${
                   hasChanges 
@@ -754,7 +754,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* 版本資訊 */}
+          {/* Version info */}
           <View className="items-center mt-8 mb-4">
             <Text className="text-gray-500 dark:text-gray-400 text-sm">
               {t('app.version')}

@@ -1,23 +1,23 @@
 # ──────────────────────────────────────────────────────────────────────────
-# billing: 預算上限 + 自動停機（kill switch）
+# billing: budget cap + automatic shutdown (kill switch)
 #
-# 為什麼需要：
-#   GCP 沒有「達到預算就停服務」的開關，只有 alert email。
-#   官方建議的做法：
-#     1. 設 budget → 達到 threshold 時送訊息到 Pub/Sub
-#     2. Cloud Function 訂閱 Pub/Sub，呼叫 Cloud Billing API
-#        unset project 的 billing account
-#     3. billing 一停 → Cloud Run / Firestore 寫入 / Vertex AI 立刻拒絕
+# Why this is needed:
+#   GCP has no built-in "stop service when budget is hit" switch -- only alert emails.
+#   The officially recommended pattern:
+#     1. Define a budget -> send a message to Pub/Sub when a threshold is hit
+#     2. A Cloud Function subscribes to Pub/Sub and calls the Cloud Billing API
+#        to unset the project's billing account
+#     3. Once billing is disabled, Cloud Run / Firestore writes / Vertex AI start refusing requests immediately
 #
-# 副作用（你必須知道）：
-#   - 停 billing 後，Cloud Run 5 分鐘內開始 503，Firestore 進入 read-only-cache
-#   - 重新接帳單後，服務會回來，資料不會丟（除了 Vertex AI 的 in-flight request）
-#   - 這是「硬性上限」，比起 alert-only 安全很多
+# Side effects (you should be aware):
+#   - After billing is disabled, Cloud Run starts returning 503 within ~5 minutes; Firestore enters read-only-cache mode
+#   - After billing is reattached, services come back and data is not lost (except for Vertex AI in-flight requests)
+#   - This is a HARD cap, much safer than alert-only
 #
-# 參考：https://cloud.google.com/billing/docs/how-to/disable-billing-with-notifications
+# Reference: https://cloud.google.com/billing/docs/how-to/disable-billing-with-notifications
 # ──────────────────────────────────────────────────────────────────────────
 
-# ─────────────── Pub/Sub topic（budget alert 出口） ───────────────
+# --------------- Pub/Sub topic (budget alert sink) ---------------
 
 resource "google_pubsub_topic" "budget" {
   project = var.project_id
@@ -25,7 +25,7 @@ resource "google_pubsub_topic" "budget" {
   labels  = var.labels
 }
 
-# ─────────────── Budget 本體 ───────────────
+# --------------- Budget itself ---------------
 
 resource "google_billing_budget" "monthly" {
   billing_account = var.billing_account
@@ -44,7 +44,7 @@ resource "google_billing_budget" "monthly" {
     }
   }
 
-  # 多階段 threshold：50/90% 純通知，100% 觸發 kill function
+  # Multi-stage thresholds: 50%/90% notify only, 100% triggers the kill function
   dynamic "threshold_rules" {
     for_each = var.alert_thresholds
     content {
@@ -53,13 +53,13 @@ resource "google_billing_budget" "monthly" {
     }
   }
 
-  # 額外加一個 100% threshold（kill switch 用）
+  # Add an extra 100% threshold (used by the kill switch)
   threshold_rules {
     threshold_percent = 1.0
     spend_basis       = "CURRENT_SPEND"
   }
 
-  # 預測（forecast）也加一個 100%，提早一兩天通知
+  # Also add a 100% forecasted threshold to get a heads-up a day or two earlier
   threshold_rules {
     threshold_percent = 1.0
     spend_basis       = "FORECASTED_SPEND"
@@ -73,7 +73,7 @@ resource "google_billing_budget" "monthly" {
   }
 }
 
-# ─────────────── Kill function 用的 service account ───────────────
+# --------------- Service account used by the kill function ---------------
 
 resource "google_service_account" "killer" {
   count        = var.enable_kill_switch ? 1 : 0
@@ -83,11 +83,12 @@ resource "google_service_account" "killer" {
   description  = "Disables project billing when monthly budget exceeded"
 }
 
-# Function SA 要能解除 project 與 billing account 的關聯，需要在 billing account
-# 層級拿到 billing.resourceAssociations.delete 權限。
-# 這個權限只在 roles/billing.admin 裡（roles/billing.user 只能 link、不能 unlink）。
-# 警告：roles/billing.admin 是幾乎的 billing account full control，規模變大後可
-# 考慮改成 self-hosted custom role 縮減權限。
+# To detach a project from its billing account, the function SA needs the
+# billing.resourceAssociations.delete permission at the billing-account level.
+# That permission only exists in roles/billing.admin (roles/billing.user can
+# link but NOT unlink).
+# Warning: roles/billing.admin is essentially full control over the billing
+# account; once usage grows, consider a custom role to tighten this down.
 resource "google_billing_account_iam_member" "killer_billing_user" {
   count              = var.enable_kill_switch ? 1 : 0
   billing_account_id = var.billing_account
@@ -95,7 +96,7 @@ resource "google_billing_account_iam_member" "killer_billing_user" {
   member             = "serviceAccount:${google_service_account.killer[0].email}"
 }
 
-# 允許 Function SA 讀 project（避免 NotFound）
+# Allow the function SA to read the project (avoids NotFound)
 resource "google_project_iam_member" "killer_viewer" {
   count   = var.enable_kill_switch ? 1 : 0
   project = var.project_id
@@ -103,7 +104,7 @@ resource "google_project_iam_member" "killer_viewer" {
   member  = "serviceAccount:${google_service_account.killer[0].email}"
 }
 
-# Eventarc trigger 投遞事件需要的角色
+# Role required for the Eventarc trigger to deliver events
 resource "google_project_iam_member" "killer_eventarc" {
   count   = var.enable_kill_switch ? 1 : 0
   project = var.project_id
@@ -111,7 +112,7 @@ resource "google_project_iam_member" "killer_eventarc" {
   member  = "serviceAccount:${google_service_account.killer[0].email}"
 }
 
-# Function Gen2 底層是 Cloud Run，trigger 要呼叫它
+# Cloud Functions Gen2 is built on Cloud Run; the trigger needs to invoke it
 resource "google_project_iam_member" "killer_run_invoker" {
   count   = var.enable_kill_switch ? 1 : 0
   project = var.project_id
@@ -119,7 +120,7 @@ resource "google_project_iam_member" "killer_run_invoker" {
   member  = "serviceAccount:${google_service_account.killer[0].email}"
 }
 
-# ─────────────── Function source 打包 + 上傳 GCS ───────────────
+# --------------- Pack function source + upload to GCS ---------------
 
 data "archive_file" "killer_src" {
   count       = var.enable_kill_switch ? 1 : 0
@@ -155,7 +156,7 @@ resource "google_storage_bucket_object" "killer_src" {
   source = data.archive_file.killer_src[0].output_path
 }
 
-# ─────────────── Cloud Function Gen2 ───────────────
+# --------------- Cloud Function Gen2 ---------------
 
 resource "google_cloudfunctions2_function" "killer" {
   count    = var.enable_kill_switch ? 1 : 0

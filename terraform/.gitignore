@@ -24,15 +24,15 @@ override.tf.json
 terraform.rc
 credentials.tfrc.json
 
-# 本地 override tfvars（含 billing account / token 等敏感值）
+# Local override tfvars (containing billing account / token / other secrets)
 envs/*.local.tfvars
 *.auto.tfvars
 *.auto.tfvars.json
 !*.tfvars.example
 
-# Cloud Function 打包暫存
+# Cloud Function build artifacts
 modules/**/.build/
 
-# Lock file 要進版本控管，不要 ignore
+# Lock file is committed; do not ignore.
 # .terraform.lock.hcl
 

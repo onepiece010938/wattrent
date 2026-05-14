@@ -1,4 +1,4 @@
-# 排除 build 不需要的檔案
+# Files not needed inside the build context
 .git
 .github
 .gitignore
@@ -15,6 +15,6 @@ coverage*
 .vscode
 .idea
 
-# 不要把開發用的 stub 進到 image
+# Do NOT bake the dev-only stub into the image
 ImageAnalysisQuickstart.go
 main.oldgo

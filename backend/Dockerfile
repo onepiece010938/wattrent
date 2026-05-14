@@ -1,27 +1,27 @@
-# ──────────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # WattRent Backend production image
 #
-# Multi-stage：
-#   1. builder：cached go modules + 編譯 static binary
-#   2. runtime：distroless 最小化 image
+# Multi-stage:
+#   1. builder: cached go modules + compile a static binary
+#   2. runtime: minimal distroless image
 #
-# Cloud Run 會帶 PORT env var；Gin 預設 8080，這裡也用 8080
-# ──────────────────────────────────────────────────────────────────────────
+# Cloud Run injects the PORT env var; Gin defaults to 8080 and so do we.
+# ----------------------------------------------------------------------
 
-# ───────────── builder ─────────────
-# 用浮動 tag 1.25-alpine：自動拉到該系列最新 patch（含 stdlib CVE 修補）
+# ----- builder -----
+# Use the floating tag 1.25-alpine so we always pull the latest patch in the series (incl. stdlib CVE fixes).
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /src
 
-# 先複製 go.mod / go.sum 充分利用 layer cache
+# Copy go.mod / go.sum first to make the most of layer caching.
 COPY go.mod go.sum ./
 RUN go mod download
 
-# 再複製整份 source
+# Then copy the rest of the source.
 COPY . .
 
-# 靜態編譯（CGO_ENABLED=0 → 不依賴 glibc，可塞進 distroless）
+# Static build (CGO_ENABLED=0 -> no glibc dependency, fits into distroless).
 ARG VERSION=dev
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build \
@@ -29,7 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /out/wattrent-api .
 
-# ───────────── runtime ─────────────
+# ----- runtime -----
 FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app

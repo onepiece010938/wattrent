@@ -2,7 +2,7 @@
 # api: Cloud Run + runtime SA + IAM + Artifact Registry
 # ──────────────────────────────────────────────────────────────────────────
 
-# ─────────── Artifact Registry（Docker image 倉庫） ───────────
+# --------- Artifact Registry (Docker image repository) ---------
 
 resource "google_artifact_registry_repository" "wattrent" {
   project       = var.project_id
@@ -25,12 +25,12 @@ resource "google_artifact_registry_repository" "wattrent" {
     action = "DELETE"
     condition {
       tag_state  = "UNTAGGED"
-      older_than = "604800s" # 7 天
+      older_than = "604800s" # 7 days
     }
   }
 }
 
-# ─────────── Cloud Run 執行身份 ───────────
+# --------- Cloud Run runtime identity ---------
 
 resource "google_service_account" "run" {
   project      = var.project_id
@@ -38,31 +38,32 @@ resource "google_service_account" "run" {
   display_name = "Cloud Run runtime SA for ${var.service_name}"
 }
 
-# Firestore 讀寫
+# Firestore read/write
 resource "google_project_iam_member" "run_firestore" {
   project = var.project_id
   role    = "roles/datastore.user"
   member  = "serviceAccount:${google_service_account.run.email}"
 }
 
-# GCS bucket 讀寫（只給這個 bucket）
+# GCS bucket read/write (only this bucket)
 resource "google_storage_bucket_iam_member" "run_meters" {
   bucket = var.meters_bucket
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.run.email}"
 }
 
-# Vertex AI 呼叫（AI_BACKEND=vertex 時才需要；AI_BACKEND=gemini 走 AI Studio API key 不需要此 IAM）
-# 為了讓 user 可以不跑 terraform apply 就在 console 切換 backend，這裡不加 count，一律授權。
+# Vertex AI calls (only required when AI_BACKEND=vertex; AI_BACKEND=gemini uses an AI Studio API key and does NOT need this IAM).
+# To allow toggling backend in the console without re-running terraform apply, this binding is granted unconditionally (no count).
 resource "google_project_iam_member" "run_vertex" {
   project = var.project_id
   role    = "roles/aiplatform.user"
   member  = "serviceAccount:${google_service_account.run.email}"
 }
 
-# ─────────── Gemini API key Secret（AI_BACKEND=gemini 時使用） ───────────
-# Terraform 只建 secret 容器；實際金鑰值請在 https://aistudio.google.com/apikey 取得後
-# 手動 `gcloud secrets versions add wattrent-gemini-api-key --data-file=-`。
+# --------- Gemini API key Secret (used when AI_BACKEND=gemini) ---------
+# Terraform only creates the secret container; obtain the actual key value from
+# https://aistudio.google.com/apikey and run
+# `gcloud secrets versions add wattrent-gemini-api-key --data-file=-` manually.
 resource "google_secret_manager_secret" "gemini_api_key" {
   count     = var.ai_backend == "gemini" ? 1 : 0
   project   = var.project_id
@@ -82,14 +83,14 @@ resource "google_secret_manager_secret_iam_member" "run_gemini_api_key" {
   member    = "serviceAccount:${google_service_account.run.email}"
 }
 
-# 簽 V4 signed URL（不需要額外 role，但要有 iam.serviceAccountTokenCreator on self）
+# Sign V4 signed URLs (no extra role needed, but requires iam.serviceAccountTokenCreator on self)
 resource "google_service_account_iam_member" "run_sign_self" {
   service_account_id = google_service_account.run.name
   role               = "roles/iam.serviceAccountTokenCreator"
   member             = "serviceAccount:${google_service_account.run.email}"
 }
 
-# Secret Manager 讀（只給有需要的 secret）
+# Read from Secret Manager (only the secrets that are needed)
 resource "google_secret_manager_secret_iam_member" "run_sentry_dsn" {
   count     = var.sentry_dsn_secret != "" ? 1 : 0
   project   = var.project_id
@@ -98,16 +99,16 @@ resource "google_secret_manager_secret_iam_member" "run_sentry_dsn" {
   member    = "serviceAccount:${google_service_account.run.email}"
 }
 
-# ─────────── Cloud Run service ───────────
+# --------- Cloud Run service ---------
 
 resource "google_cloud_run_v2_service" "api" {
   project  = var.project_id
   name     = var.service_name
   location = var.region
-  ingress  = "INGRESS_TRAFFIC_ALL" # 之後可改 INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER
+  ingress  = "INGRESS_TRAFFIC_ALL" # Switch to INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER later
 
-  # 預設是 true，會擋下 terraform destroy/replace。
-  # 初期佈署需要能重建，等 production stable 後再打開。
+  # Defaults to true, which blocks terraform destroy/replace.
+  # Initial deploys need to be able to recreate; turn this on once production is stable.
   deletion_protection = false
 
   labels = var.labels
@@ -136,7 +137,7 @@ resource "google_cloud_run_v2_service" "api" {
           cpu    = var.cpu
           memory = var.memory
         }
-        cpu_idle          = true # scale-to-zero 期間不計費
+        cpu_idle          = true # Not billed during scale-to-zero
         startup_cpu_boost = true
       }
 
@@ -221,9 +222,9 @@ resource "google_cloud_run_v2_service" "api" {
     percent = 100
   }
 
-  # CI/CD 會頻繁更新 image tag，避免 TF 把它 revert。
-  # env 是交給 TF 管的（包含新增的 GEMINI_API_KEY/AI_BACKEND/GEMINI_MODEL），
-  # 不要 ignore，否則 Cloud Run 不會拉新 env。
+  # CI/CD frequently updates the image tag; do not let TF revert it.
+  # env vars ARE managed by TF (including the new GEMINI_API_KEY/AI_BACKEND/GEMINI_MODEL);
+  # do NOT ignore them, otherwise Cloud Run won't pick up the new env.
   lifecycle {
     ignore_changes = [
       template[0].containers[0].image,
@@ -239,7 +240,7 @@ resource "google_cloud_run_v2_service" "api" {
   ]
 }
 
-# ─────────── 對外開放（暫時 allUsers，正式環境建議改成 ID token 驗證） ───────────
+# --------- Public access (allUsers for now; for production switch to ID token validation) ---------
 
 resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
   project  = var.project_id
@@ -249,11 +250,11 @@ resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
   member   = "allUsers"
 }
 
-# ─────────── Cloud Run domain mapping（自訂網域） ───────────
+# --------- Cloud Run domain mapping (custom domain) ---------
 
 resource "google_cloud_run_domain_mapping" "api" {
   count    = var.api_fqdn != "" ? 1 : 0
-  provider = google-beta # domain mapping 仍在 beta
+  provider = google-beta # domain mapping is still in beta
 
   project  = var.project_id
   location = var.region

@@ -10,7 +10,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 3 * * 1" # 每週一 03:00 UTC
+    - cron: "0 3 * * 1" # Every Monday 03:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,7 @@ permissions:
   security-events: write
 
 jobs:
-  # ────────────────────── Gitleaks 找硬編碼 secret ──────────────────────
+  # ---------------------- Gitleaks: hard-coded secret scan ----------------------──
   gitleaks:
     name: Gitleaks
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # ────────────────────── Dependency Review ──────────────────────
+  # ---------------------- Dependency Review ----------------------
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
@@ -44,7 +44,7 @@ jobs:
         with:
           fail-on-severity: high
 
-  # ────────────────────── Go vulncheck ──────────────────────
+  # ---------------------- Go vulncheck ----------------------
   govulncheck:
     name: govulncheck
     runs-on: ubuntu-latest
@@ -57,7 +57,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: "1.25"
-          check-latest: true # 取最新 patch（stdlib CVE 修補）不要用 cache 舊版
+          check-latest: true # Pull the latest patch (stdlib CVE fixes); do not use a stale cached version
           cache-dependency-path: backend/go.sum
 
       - name: Install govulncheck
@@ -66,13 +66,14 @@ jobs:
       - name: Run govulncheck
         run: govulncheck ./...
 
-  # ────────────────────── npm audit（前端） ──────────────────────
-  # ⚠️ 門檻設成 critical 而非 high。理由：
-  #   Expo SDK 53 的 @expo/cli / @expo/metro-config 鎖了一堆有 high 漏洞
-  #   的 transitive deps（tar / undici / glob / minimatch / node-forge / xmldom...）。
-  #   這些都是 build-tool（跑在 dev / CI runner），不會被打包進 user device，
-  #   風險低；要清掉只能等 Expo 升 SDK 或 fork 改 lockfile，得不償失。
-  #   若哪天升 Expo 或 production 套件出 critical CVE，CI 會擋。
+  # ---------------------- npm audit (frontend) ----------------------
+  # WHY threshold is critical and not high:
+  #   Expo SDK 53's @expo/cli / @expo/metro-config pin a bunch of high-severity
+  #   transitive deps (tar / undici / glob / minimatch / node-forge / xmldom...).
+  #   These are build-tools (run on dev / CI runner) and never get bundled
+  #   into the user device, so the risk is low; clearing them out requires
+  #   waiting for Expo to bump SDK or forking the lockfile, which is not worth it.
+  #   If we ever bump Expo or a production package gets a critical CVE, CI will block.
   npm-audit:
     name: npm audit
     runs-on: ubuntu-latest

@@ -14,7 +14,7 @@ import (
 	"wattrent/internal/models"
 )
 
-// BillService 操作 /users/{uid}/bills/{billId}
+// BillService operates on /users/{uid}/bills/{billId}.
 type BillService struct {
 	fs       *firestore.Client
 	settings *SettingsService
@@ -28,13 +28,14 @@ func (s *BillService) billsCol(uid string) *firestore.CollectionRef {
 	return s.fs.Collection("users").Doc(uid).Collection("bills")
 }
 
-// Create 建立帳單。
+// Create creates a new bill.
 //
-// 在同一個 transaction 中：
-//  1. 寫入新 bill
-//  2. 把 settings.previousMeterReading 更新為這次的讀數
+// Inside one transaction:
+//  1. Write the new bill.
+//  2. Update settings.previousMeterReading to this reading.
 //
-// 注意：previousReading 取自當前 settings；若這是第一筆 bill，previousReading=0。
+// Note: previousReading is taken from the current settings; if this is the
+// first bill, previousReading=0.
 func (s *BillService) Create(ctx context.Context, uid string, req *models.CreateBillRequest) (*models.Bill, error) {
 	periodStart, err := parsePeriod(req.Period)
 	if err != nil {
@@ -51,7 +52,7 @@ func (s *BillService) Create(ctx context.Context, uid string, req *models.Create
 	var created models.Bill
 
 	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		// 1. 取上次讀數（從 settings 拿；若無則 0）
+		// 1. Read the previous meter reading from settings (default 0 if missing)
 		var prevReading float64
 		if snap, err := tx.Get(settingsRef); err == nil {
 			if v, err := snap.DataAt("previousMeterReading"); err == nil {
@@ -93,7 +94,7 @@ func (s *BillService) Create(ctx context.Context, uid string, req *models.Create
 			return err
 		}
 
-		// 2. 更新 settings.previousMeterReading
+		// 2. Update settings.previousMeterReading
 		if err := tx.Set(settingsRef, map[string]interface{}{
 			"previousMeterReading": req.MeterReading,
 			"updatedAt":            firestore.ServerTimestamp,
@@ -112,7 +113,7 @@ func (s *BillService) Create(ctx context.Context, uid string, req *models.Create
 	return &created, nil
 }
 
-// Get 取得單一 bill。
+// Get fetches a single bill.
 func (s *BillService) Get(ctx context.Context, uid, billID string) (*models.Bill, error) {
 	snap, err := s.billsCol(uid).Doc(billID).Get(ctx)
 	if err != nil {
@@ -127,7 +128,7 @@ func (s *BillService) Get(ctx context.Context, uid, billID string) (*models.Bill
 	return docToBill(snap)
 }
 
-// List 列出使用者所有 bills（新→舊）。
+// List lists every bill for a user (newest first).
 func (s *BillService) List(ctx context.Context, uid string, limit int) ([]*models.Bill, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 50
@@ -155,7 +156,7 @@ func (s *BillService) List(ctx context.Context, uid string, limit int) ([]*model
 	return bills, nil
 }
 
-// Latest 取最新一筆 bill。
+// Latest returns the most recent bill.
 func (s *BillService) Latest(ctx context.Context, uid string) (*models.Bill, error) {
 	bills, err := s.List(ctx, uid, 1)
 	if err != nil {
@@ -167,7 +168,7 @@ func (s *BillService) Latest(ctx context.Context, uid string) (*models.Bill, err
 	return bills[0], nil
 }
 
-// SetPaid 標記付款狀態。paid=true → paidAt=now；paid=false → paidAt=nil。
+// SetPaid toggles the payment status. paid=true -> paidAt=now; paid=false -> paidAt=nil.
 func (s *BillService) SetPaid(ctx context.Context, uid, billID string, paid bool) (*models.Bill, error) {
 	updates := []firestore.Update{
 		{Path: "updatedAt", Value: firestore.ServerTimestamp},
@@ -187,7 +188,7 @@ func (s *BillService) SetPaid(ctx context.Context, uid, billID string, paid bool
 	return s.Get(ctx, uid, billID)
 }
 
-// Delete 刪除 bill；已付款的 bill 不允許刪。
+// Delete deletes a bill; paid bills cannot be deleted.
 func (s *BillService) Delete(ctx context.Context, uid, billID string) error {
 	bill, err := s.Get(ctx, uid, billID)
 	if err != nil {
@@ -203,9 +204,9 @@ func (s *BillService) Delete(ctx context.Context, uid, billID string) error {
 	return err
 }
 
-// ─────────────────────── helpers ───────────────────────
+// ----------------------- helpers -----------------------
 
-// parsePeriod "YYYY-MM" → time.Time（該月第一天 00:00 Asia/Taipei）。
+// parsePeriod converts "YYYY-MM" to time.Time (first day of the month at 00:00 Asia/Taipei).
 func parsePeriod(period string) (time.Time, error) {
 	loc, _ := time.LoadLocation("Asia/Taipei")
 	t, err := time.ParseInLocation("2006-01", period, loc)

@@ -1,13 +1,13 @@
 # ──────────────────────────────────────────────────────────────────────────
-# 模組組合（root → modules/*）
+# Module composition (root → modules/*)
 # ──────────────────────────────────────────────────────────────────────────
 
-# ─────────────── 取得 project number（給 budget filter / WIF 用） ───────────────
+# ─────────────── Look up the project number (for budget filter / WIF) ───────────────
 data "google_project" "current" {
   project_id = local.gcp_project_id
 }
 
-# ─────────────── 啟用 API（其他模組都依賴這個） ───────────────
+# ─────────────── Enable APIs (every other module depends on this) ───────────────
 module "project_services" {
   source = "./modules/project_services"
 
@@ -15,7 +15,7 @@ module "project_services" {
   apis       = local.enabled_apis
 }
 
-# ─────────────── 物件儲存（電表照片） ───────────────
+# ─────────────── Object storage (meter photos) ───────────────
 module "storage" {
   source = "./modules/storage"
 
@@ -38,7 +38,7 @@ module "database" {
   depends_on = [module.project_services]
 }
 
-# ─────────────── Identity Platform（Auth） ───────────────
+# ─────────────── Identity Platform (Auth) ───────────────
 module "auth" {
   source = "./modules/auth"
 
@@ -78,7 +78,7 @@ module "api" {
   ]
 }
 
-# ─────────────── GitHub Actions OIDC（Workload Identity Federation） ───────────────
+# ─────────────── GitHub Actions OIDC (Workload Identity Federation) ───────────────
 module "cicd" {
   source = "./modules/cicd"
 
@@ -92,7 +92,7 @@ module "cicd" {
   depends_on = [module.project_services, module.api]
 }
 
-# ─────────────── DNS（Cloudflare → Cloud Run domain mapping） ───────────────
+# ─────────────── DNS (Cloudflare → Cloud Run domain mapping) ───────────────
 module "dns" {
   count  = var.cloudflare_zone_id != "" && var.domain_root != "" ? 1 : 0
   source = "./modules/dns"
@@ -102,7 +102,7 @@ module "dns" {
   cloud_run_url      = module.api.service_url
 }
 
-# ─────────────── Sentry（可選） ───────────────
+# ─────────────── Sentry (optional) ───────────────
 module "observability" {
   count  = var.enable_sentry ? 1 : 0
   source = "./modules/observability"
@@ -112,7 +112,7 @@ module "observability" {
   sentry_organization = var.sentry_organization
 }
 
-# ─────────────── Budget + kill switch（避免被多收錢） ───────────────
+# ─────────────── Budget + kill switch (prevent runaway billing) ───────────────
 module "billing" {
   source = "./modules/billing"
 

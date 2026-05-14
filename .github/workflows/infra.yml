@@ -1,15 +1,15 @@
-# ──────────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # Infra: Terraform plan (PR) / apply (main)
 #
-# 認證模型：
-#   - TFC API：TF_API_TOKEN（GitHub repo secret，HCP TFC 個人或 team token）
-#   - GCP：TFC workspace 環境變數 TFC_GCP_* → TFC runner 自動向 GCP STS
-#          換短效 ADC，再 impersonate tfc-runner SA。
-#          GitHub runner 完全不接觸 GCP credential。
+# Auth model:
+#   - TFC API: TF_API_TOKEN (GitHub repo secret, HCP TFC personal or team token)
+#   - GCP: TFC workspace env vars TFC_GCP_* -> the TFC runner automatically
+#          exchanges with GCP STS for short-lived ADC and impersonates the
+#          tfc-runner SA. The GitHub runner never touches a GCP credential.
 #
-# 執行模式：TFC workspace 必須選 "Remote"，所有 plan / apply 跑在 TFC
-#           runner 上（這裡的 terraform CLI 只負責觸發 + 串 log）。
-# ──────────────────────────────────────────────────────────────────────────
+# Execution mode: the TFC workspace MUST be set to "Remote"; all plans /
+#   applies run on the TFC runner (the terraform CLI here only triggers and streams logs).
+# ----------------------------------------------------------------------
 
 name: Infra
 
@@ -27,11 +27,11 @@ on:
   workflow_dispatch:
     inputs:
       env:
-        description: "Target environment (production 暫時鎖住，發表前才開)"
+        description: "Target environment (production temporarily locked; will reopen before launch)"
         required: true
         default: staging
         type: choice
-        options: [staging] # 要開 prod 請加回 production；詳見 workflow 檔頂註釋
+        options: [staging] # To enable prod, add `production` back; see the comment block at the top of this file
       action:
         description: "Action"
         required: true
@@ -66,7 +66,7 @@ jobs:
 
       - uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.15.2 # 1.10+ 才支援 cloud{} workspaces 的 key:value tags
+          terraform_version: 1.15.2 # 1.10+ is required for cloud{} workspaces with key:value tags
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
       - name: Init

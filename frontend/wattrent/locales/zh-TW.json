@@ -144,6 +144,15 @@
     "zh-TW": "繁體中文",
     "en": "English"
   },
+  "period": {
+    "format": "{{year}}年{{month}}月"
+  },
+  "errors": {
+    "backend": {
+      "unreachable": "無法連線到後端 ({{url}})：請確認 backend 已啟動，且手機與電腦在同一網路。",
+      "parseFailed": "HTTP {{status}}：無法解析回應"
+    }
+  },
   "app": {
     "version": "WattRent v1.0.0"
   },

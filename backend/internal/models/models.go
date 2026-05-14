@@ -1,14 +1,14 @@
-// Package models 定義 API 與 Firestore 共用的資料結構。
+// Package models defines data structures shared between the API and Firestore.
 //
-// 命名約定：
-//   - JSON / Firestore 欄位都用 camelCase
-//   - Firestore 不存 userId（路徑已包含）
-//   - 文件 ID 在 Go 層用 ID string `firestore:"-"`，不寫入 doc data
+// Naming conventions:
+//   - Both JSON and Firestore field names use camelCase
+//   - Firestore documents do not store userId (it is part of the path)
+//   - Document IDs are exposed via Go ID string `firestore:"-"` and never written into the doc data
 package models
 
 import "time"
 
-// PaymentMethod 付款方式（前端 i18n key）
+// PaymentMethod is the payment method (frontend i18n key).
 type PaymentMethod string
 
 const (
@@ -19,8 +19,8 @@ const (
 	PaymentMethodOther        PaymentMethod = "other"
 )
 
-// User 使用者主文件（document ID = Firebase Auth uid）。
-// 路徑：/users/{uid}
+// User is the user document (document ID = Firebase Auth uid).
+// Path: /users/{uid}
 type User struct {
 	ID          string    `firestore:"-"             json:"id"`
 	Email       string    `firestore:"email"          json:"email"`
@@ -30,8 +30,8 @@ type User struct {
 	UpdatedAt   time.Time `firestore:"updatedAt"      json:"updatedAt"`
 }
 
-// UserSettings 使用者設定。
-// 路徑：/users/{uid}/settings/current （文件 ID 永遠是 "current"）
+// UserSettings is the user settings document.
+// Path: /users/{uid}/settings/current (the document ID is always "current")
 type UserSettings struct {
 	DefaultElectricityRate float64       `firestore:"defaultElectricityRate" json:"defaultElectricityRate"`
 	DefaultRent            float64       `firestore:"defaultRent"            json:"defaultRent"`
@@ -44,7 +44,7 @@ type UserSettings struct {
 	UpdatedAt              time.Time     `firestore:"updatedAt"              json:"updatedAt"`
 }
 
-// DefaultUserSettings 使用者首次取設定時的預設值。
+// DefaultUserSettings is the default value returned the first time a user reads settings.
 func DefaultUserSettings() UserSettings {
 	return UserSettings{
 		DefaultElectricityRate: 4.5,
@@ -58,7 +58,7 @@ func DefaultUserSettings() UserSettings {
 	}
 }
 
-// OCRResult OCR 模型對某張圖片的判讀紀錄（嵌入在 Bill 裡）。
+// OCRResult records an OCR model's reading for a given image (embedded in Bill).
 type OCRResult struct {
 	Confidence  float64   `firestore:"confidence"   json:"confidence"`
 	Model       string    `firestore:"model"         json:"model"`
@@ -66,8 +66,8 @@ type OCRResult struct {
 	ProcessedAt time.Time `firestore:"processedAt"  json:"processedAt"`
 }
 
-// Bill 單筆帳單。
-// 路徑：/users/{uid}/bills/{billId}
+// Bill is a single bill.
+// Path: /users/{uid}/bills/{billId}
 type Bill struct {
 	ID               string     `firestore:"-"                 json:"id"`
 	Period           string     `firestore:"period"             json:"period"`
@@ -86,13 +86,13 @@ type Bill struct {
 	UpdatedAt        time.Time  `firestore:"updatedAt"          json:"updatedAt"`
 }
 
-// ────────────────── API DTOs ──────────────────
+// ------------------ API DTOs ------------------
 
-// CreateBillRequest 建立帳單的請求 body。
+// CreateBillRequest is the request body for creating a bill.
 //
-// 注意：
-//   - 後端會用 settings.PreviousMeterReading 算 usage，前端不需傳
-//   - period 格式：YYYY-MM
+// Notes:
+//   - The backend computes usage from settings.PreviousMeterReading; the frontend does not need to send it
+//   - period format: YYYY-MM
 type CreateBillRequest struct {
 	MeterReading    float64 `json:"meterReading"     binding:"required,gte=0"`
 	ElectricityRate float64 `json:"electricityRate"  binding:"required,gt=0"`
@@ -101,13 +101,13 @@ type CreateBillRequest struct {
 	ImageURL        string  `json:"imageUrl"`
 }
 
-// UpdateBillPaymentRequest 標記 / 取消已付款。
+// UpdateBillPaymentRequest marks a bill as paid or unpaid.
 type UpdateBillPaymentRequest struct {
 	Paid bool `json:"paid"`
 }
 
-// UpdateSettingsRequest PATCH /api/v1/settings 用。
-// 全部 optional pointer，nil 代表不改。
+// UpdateSettingsRequest is the body for PATCH /api/v1/settings.
+// Every field is an optional pointer; nil means "do not change".
 type UpdateSettingsRequest struct {
 	DefaultElectricityRate *float64       `json:"defaultElectricityRate"`
 	DefaultRent            *float64       `json:"defaultRent"`
@@ -119,13 +119,13 @@ type UpdateSettingsRequest struct {
 	AutoBackup             *bool          `json:"autoBackup"`
 }
 
-// OCRRequest OCR 請求。
+// OCRRequest is the OCR request body.
 type OCRRequest struct {
 	ImageBase64 string `json:"imageBase64"`
 	ImageURL    string `json:"imageUrl"`
 }
 
-// OCRResponse OCR 回應。
+// OCRResponse is the OCR response.
 type OCRResponse struct {
 	Reading    float64 `json:"reading"`
 	Confidence float64 `json:"confidence"`
@@ -133,23 +133,23 @@ type OCRResponse struct {
 	Model      string  `json:"model"`
 }
 
-// SignedUploadRequest 申請簽名上傳 URL。
+// SignedUploadRequest requests a signed upload URL.
 type SignedUploadRequest struct {
 	BillID      string `json:"billId" binding:"required"`
 	ContentType string `json:"contentType" binding:"required"`
 }
 
-// SignedUploadResponse 回給前端的簽名 URL + 預期 GCS path。
+// SignedUploadResponse is the signed URL plus the expected GCS path returned to the frontend.
 type SignedUploadResponse struct {
 	UploadURL string `json:"uploadUrl"`
 	GcsPath   string `json:"gcsPath"`
 	ExpiresAt string `json:"expiresAt"`
 }
 
-// ApiResponse 統一 API 回應格式。
+// ApiResponse is the unified API response envelope.
 //
-// Error / Message 是 i18n key（例：errors.bill_not_found）；
-// 不要塞中文字串，前端會 t() 翻譯。
+// Error / Message are i18n keys (e.g. errors.bill_not_found);
+// never put localized strings here, the frontend will translate them via t().
 type ApiResponse struct {
 	Success bool        `json:"success"`
 	Data    interface{} `json:"data,omitempty"`

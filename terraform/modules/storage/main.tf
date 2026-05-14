@@ -1,12 +1,12 @@
-# ──────────────────────────────────────────────────────────────────────────
-# storage: GCS bucket（電表照片）
+# ----------------------------------------------------------------------
+# storage: GCS bucket (meter photos)
 #
-# 設計重點：
-#   - Single region（asia-east1）省成本
-#   - 對外存取走後端簽 V4 signed URL（不開 public）
-#   - Lifecycle：90 天 → Nearline；365 天 → Coldline
-#   - Versioning 關閉（電表照片不需要歷史版本）
-# ──────────────────────────────────────────────────────────────────────────
+# Design notes:
+#   - Single region (asia-east1) to save cost
+#   - External access goes through backend-issued V4 signed URLs (NOT public)
+#   - Lifecycle: 90 days -> Nearline; 365 days -> Coldline
+#   - Versioning disabled (meter photos do not need history)
+# ----------------------------------------------------------------------
 
 resource "google_storage_bucket" "meters" {
   project  = var.project_id
@@ -43,9 +43,9 @@ resource "google_storage_bucket" "meters" {
     }
   }
 
-  # CORS：給前端 web 上傳預覽
+  # CORS: allow the web frontend to upload + preview
   cors {
-    origin          = ["*"] # 上線前縮成自家 domain
+    origin          = ["*"] # Tighten to your own domain before going to production
     method          = ["GET", "HEAD"]
     response_header = ["*"]
     max_age_seconds = 3600

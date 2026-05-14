@@ -1,18 +1,18 @@
-# ──────────────────────────────────────────────────────────────────────────
+# ----------------------------------------------------------------------
 # observability: Sentry project + Secret Manager secret
 #
-# 流程：
-#   1. Terraform 建 Sentry project，輸出 DSN
-#   2. 把 DSN 寫入 Secret Manager
-#   3. Cloud Run 透過 secret_key_ref 注入成 env var SENTRY_DSN
-# ──────────────────────────────────────────────────────────────────────────
+# Flow:
+#   1. Terraform creates the Sentry project and exports the DSN
+#   2. Write the DSN into Secret Manager
+#   3. Cloud Run injects it as the SENTRY_DSN env var via secret_key_ref
+# ----------------------------------------------------------------------
 
 data "sentry_organization" "this" {
   slug = var.sentry_organization
 }
 
-# 用既有的預設 team（建 Sentry org 時自動建好同名 team）。
-# 如果想由 Terraform 全管，需要 token 有 team:admin 權限刪掉預設 team 後改回 resource。
+# Reuse the existing default team (Sentry auto-creates a team with the same name when the org is created).
+# To manage it fully via Terraform you would need a token with team:admin to delete the default team and recreate it as a resource.
 data "sentry_team" "wattrent" {
   organization = data.sentry_organization.this.slug
   slug         = "wattrent"
@@ -34,8 +34,8 @@ resource "sentry_project" "frontend" {
   platform     = "react-native"
 }
 
-# ─────────── 取每個 project 的預設 client key (DSN) ───────────
-# 新版 sentry provider 移除 sentry_project.dsn_public，改用 sentry_key data source。
+# --------- Pull each project's default client key (DSN) ---------
+# The newer sentry provider removes sentry_project.dsn_public; use the sentry_key data source instead.
 
 data "sentry_key" "backend" {
   organization = data.sentry_organization.this.slug
@@ -49,7 +49,7 @@ data "sentry_key" "frontend" {
   first        = true
 }
 
-# ─────────── 把 DSN 存到 Secret Manager ───────────
+# --------- Store the DSN in Secret Manager ---------
 
 resource "google_secret_manager_secret" "sentry_dsn_backend" {
   project   = var.project_id

@@ -13,15 +13,19 @@ import (
 	"wattrent/internal/models"
 )
 
-// OCRService 用 Gemini（AI Studio 或 Vertex AI）讀電表度數。
+// OCRService reads electricity-meter readings via Gemini (AI Studio or Vertex AI).
 //
-// 為什麼選 Gemini Flash-Lite 而不是傳統 OCR：
-//   - 電表的「滾輪在兩個數字之間」場景靠 prompt 指令處理，傳統 OCR 不行
-//   - 多種電表型號 / 拍攝角度 / 反光，Gemini 的視覺理解能力優於 cloud OCR
-//   - AI Studio 免費 tier 對 Flash-Lite 有 1500 次/日 額度，個人專案綜綽有餘
+// Why Gemini Flash-Lite over a traditional OCR service:
+//   - The "rotor sitting between two digits" case on mechanical meters is
+//     handled by the prompt; classic OCR cannot do it.
+//   - Gemini's vision understanding handles many meter models, shooting angles
+//     and reflections better than a plain cloud OCR.
+//   - The AI Studio free tier offers ~1500 requests/day on Flash-Lite, which
+//     is more than enough for a personal project.
 //
-// 圖片來源處理：不論後端是 Gemini API 還是 Vertex，一律把圖片以 inline bytes 送
-// 出去。這來是因為 Gemini Developer API 不能讀 gs://，二來也讓兩個後端路徑一致。
+// Image source handling: regardless of whether the backend is Gemini API or
+// Vertex, we always send the image as inline bytes. (1) The Gemini Developer
+// API cannot read gs:// directly. (2) It keeps both backend code paths uniform.
 type OCRService struct {
 	client  *genai.Client
 	storage *StorageService
@@ -32,16 +36,16 @@ func NewOCRService(client *genai.Client, storage *StorageService, model string) 
 	return &OCRService{client: client, storage: storage, model: model}
 }
 
-const ocrPrompt = `你是電表判讀專家。請看這張電子或機械式電表照片，回傳目前的累計度數（kWh）。
+const ocrPrompt = `You are an expert at reading electricity meters. Look at this digital or mechanical electricity-meter photo and return the current cumulative reading (kWh).
 
-規則：
-1. 若機械式滾輪有任何位數正在轉動（介於兩個數字之間），一律取「較小」的那個數字。
-2. 不要回小數點後的小字位（紅色或灰色背景的位數通常代表 0.1 度，請忽略）。
-3. 若無法辨識（模糊、無電表、被遮蔽），confidence 給 0。
-4. 只回 JSON，不要任何 Markdown 標記、不要解釋。
+Rules:
+1. If any mechanical-rotor digit is in motion (sitting between two numbers), always pick the SMALLER digit.
+2. Do NOT include the small fractional digits (red or grey-background digits typically denote 0.1 kWh; ignore them).
+3. If the image cannot be read (blurry, no meter, occluded), return confidence 0.
+4. Return JSON ONLY: no Markdown markers, no explanations.
 
-回應格式：
-{"reading": <整數度數>, "confidence": <0~1 浮點數>, "notes": "<簡短說明，可空>"}`
+Response format:
+{"reading": <integer kWh>, "confidence": <float 0..1>, "notes": "<short note, may be empty>"}`
 
 type ocrModelOutput struct {
 	Reading    float64 `json:"reading"`
@@ -49,13 +53,14 @@ type ocrModelOutput struct {
 	Notes      string  `json:"notes,omitempty"`
 }
 
-// Process 解析圖片，回傳 OCRResponse。
+// Process parses an image and returns an OCRResponse.
 //
-// req.ImageBase64 與 req.ImageURL 擇一：
-//   - ImageURL：支援 gs:// 路徑（會透過 Storage 下載）
-//   - ImageBase64：適合前端剛拍照、還沒上傳的場景
+// Either req.ImageBase64 or req.ImageURL must be set:
+//   - ImageURL: supports gs:// paths (downloaded via the Storage service)
+//   - ImageBase64: useful for the just-snapped, not-yet-uploaded case
 func (s *OCRService) Process(ctx context.Context, req *models.OCRRequest) (*models.OCRResponse, error) {
-	// fail-late：如果底層 client 沒被初始化（例：staging 還沒填 GEMINI_API_KEY）就回 503。
+	// fail-late: if the underlying client was never initialised (e.g. staging
+	// has not set GEMINI_API_KEY yet) return 503.
 	if s.client == nil {
 		return nil, &middleware.AppError{HTTPStatus: 503, Key: "errors.ocr.not_configured"}
 	}
@@ -75,7 +80,7 @@ func (s *OCRService) Process(ctx context.Context, req *models.OCRRequest) (*mode
 			return nil, &middleware.AppError{HTTPStatus: 502, Key: "errors.ocr.download_failed", Cause: err}
 		}
 		if ct == "application/octet-stream" {
-			// GCS 沒記錄 ContentType 就 fallback 用 URL 副檔名猜
+			// If GCS did not store a ContentType, fall back to guessing from the URL extension
 			if guessed, gerr := guessMimeFromURL(req.ImageURL); gerr == nil {
 				ct = guessed
 			}
@@ -101,7 +106,7 @@ func (s *OCRService) Process(ctx context.Context, req *models.OCRRequest) (*mode
 
 	resp, err := s.client.Models.GenerateContent(ctx, s.model, contents, &genai.GenerateContentConfig{
 		ResponseMIMEType: "application/json",
-		Temperature:      genai.Ptr(float32(0.0)), // 度數判讀要 deterministic
+		Temperature:      genai.Ptr(float32(0.0)), // Reading recognition needs to be deterministic
 	})
 	if err != nil {
 		return nil, &middleware.AppError{HTTPStatus: 502, Key: "errors.ocr.upstream_failed", Cause: err}
@@ -129,7 +134,7 @@ func (s *OCRService) Process(ctx context.Context, req *models.OCRRequest) (*mode
 	}, nil
 }
 
-// ─────────────── helpers ───────────────
+// --------------- helpers ---------------
 
 func decodeBase64Image(s string) (data []byte, mime string, err error) {
 	mime = "image/jpeg"

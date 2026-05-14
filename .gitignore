@@ -1,6 +1,6 @@
 # ──────────────────────────────────────────────────────────────────────────
 # WattRent root .gitignore
-# 子目錄（frontend/、terraform/、backend/）有更細的 ignore 規則
+# Subdirectories (frontend/, terraform/, backend/) have more specific rules.
 # ──────────────────────────────────────────────────────────────────────────
 
 # === Go ===
@@ -14,11 +14,11 @@
 go.work
 go.work.sum
 
-# Air 熱重載輸出
+# Air hot-reload output
 **/tmp/
 */tmp
 
-# === Node / Expo / 前端產物 ===
+# === Node / Expo / frontend build artefacts ===
 node_modules/
 dist/
 build/
@@ -28,7 +28,7 @@ tmp-web-bundle/
 .metro-health-check*
 *.tsbuildinfo
 
-# === 環境變數 / Secret（一律不進 repo） ===
+# === Environment variables / secrets (never commit) ===
 .env
 .env.*
 !.env.example
@@ -55,7 +55,7 @@ secrets.txt
 # Local-only docs (private design notes, not for public repo)
 docs/
 
-# === Terraform local artefacts（terraform/.gitignore 也有） ===
+# === Terraform local artefacts (terraform/.gitignore also covers these) ===
 **/.terraform/
 *.tfstate
 *.tfstate.*
@@ -68,8 +68,9 @@ override.tf.json
 *_override.tf.json
 .terraform.tfstate.lock.info
 
-# Local override tfvars（含真實 billing account / domain）
-# 共用值請放 TFC workspace variables；個人實驗用 *.local.tfvars
+# Local override tfvars (with real billing accounts / domains).
+# Put shared values in TFC workspace variables; personal experiments
+# use *.local.tfvars.
 **/envs/*.local.tfvars
 **/*.auto.tfvars
 **/*.auto.tfvars.json
@@ -83,18 +84,18 @@ override.tf.json
 Thumbs.db
 desktop.ini
 
-# === 日誌 / 暫存 ===
+# === Logs / temp files ===
 *.log
 logs/
 *.bak
 *.swp
 *~
 
-# === Cloud Function 打包暫存 ===
+# === Cloud Function packaging temp ===
 **/.build/
 **/__pycache__/
 *.pyc
 
-# === 其他 ===
+# === Misc ===
 coverage/
 .nyc_output/

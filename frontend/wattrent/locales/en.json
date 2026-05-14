@@ -141,8 +141,17 @@
     "landlordName": "John Doe"
   },
   "languages": {
-    "zh-TW": "繁體中文",
+    "zh-TW": "Traditional Chinese",
     "en": "English"
+  },
+  "period": {
+    "format": "{{month}} {{year}}"
+  },
+  "errors": {
+    "backend": {
+      "unreachable": "Cannot reach backend at {{url}}: ensure backend is running and your phone is on the same network.",
+      "parseFailed": "HTTP {{status}}: failed to parse response"
+    }
   },
   "app": {
     "version": "WattRent v1.0.0"

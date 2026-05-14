@@ -20,9 +20,9 @@ func NewOCRHandler(ocr *services.OCRService) *OCRHandler {
 
 // POST /api/v1/ocr/process
 //
-// Body：
+// Body:
 //
-//	{ "imageBase64": "...", "imageUrl": "gs://..." }  // 擇一
+//	{ "imageBase64": "...", "imageUrl": "gs://..." }  // pick one
 func (h *OCRHandler) Process(c *gin.Context) {
 	var req models.OCRRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

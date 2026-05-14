@@ -1,5 +1,5 @@
 output "bucket_name" {
-  description = "GCS bucket 名稱"
+  description = "GCS bucket name"
   value       = google_storage_bucket.meters.name
 }
 

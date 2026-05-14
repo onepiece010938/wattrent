@@ -1,121 +1,141 @@
-# WattRent 專案開發規範
+# WattRent — Cursor Rules
 
-## 專案概述
-WattRent 是一個幫助租戶計算電費和房租的行動應用程式。用戶可以透過拍照或上傳電表照片，自動識別電表度數，計算電費並生成付款通知訊息。
+> Cursor IDE-specific guidance. The full agent guide lives in
+> [.github/copilot-instructions.md](.github/copilot-instructions.md) and the
+> scope-specific rules under
+> [.github/instructions/](.github/instructions/) — please read those first.
 
-## 技術堆疊
+## Project overview
+WattRent is a mobile app that helps tenants snap an electricity meter,
+auto-extract the reading, compute the bill, and notify the landlord.
+Targets iOS, Android, and Web.
 
-### 前端
-- **框架**: Expo SDK 51 + React Native + Tailwind CSS + Nativewind
-- **語言**: TypeScript
-- **路由**: Expo Router (File-based routing)
-- **狀態管理**: React Context API 或 Zustand
-- **UI 元件**:  NativewindUI 或使用Tailwind和Nativewind自組元件，避免使用React Native Elements之類的套件
-- **影像處理**: expo-camera, expo-image-picker
-- **資料儲存**: AsyncStorage 或 expo-secure-store
+## Stack
 
-### 後端
-- **語言**: Go 1.21+
-- **框架**: Gin Web Framework
-- **熱重載**: Air
-- **資料庫**: AWS DynamoDB (NoSQL)
-- **部署**: AWS Lambda + API Gateway
-- **影像識別**: AWS Textract 或 Google Cloud Vision API (免費額度)
+### Frontend
+- Framework: Expo SDK 55 + React Native 0.83 + React 19
+- Styling: NativeWind 4 + Tailwind CSS
+- Language: TypeScript
+- Routing: Expo Router (file-based)
+- UI: NativeWindUI or hand-rolled Tailwind/NativeWind components — avoid
+  React Native Elements and similar grab-bag UI kits.
+- Camera / image: expo-camera, expo-image-picker
+- Local storage: AsyncStorage
+- i18n: i18next (en + zh-TW)
 
-### 開發環境
-- **作業系統**: Windows 11
-- **Shell**: PowerShell
-- **版本控制**: Git
+### Backend
+- Language: Go 1.25
+- Framework: Gin
+- Hot reload: Air
+- Database: Firestore Native Mode (asia-east1)
+- Object storage: GCS (asia-east1, single-region)
+- Auth: Firebase Auth / Identity Platform
+- OCR: Gemini 2.5 Flash-Lite (Google AI Studio by default;
+  `AI_BACKEND=vertex` switches to Vertex AI)
+- Deployment: Cloud Run (asia-east1)
 
-## 開發原則
+### Infra
+- IaC: Terraform (state on HCP Terraform Cloud)
+- DNS / CDN: Cloudflare
+- Secrets: GCP Secret Manager
+- CI/CD: GitHub Actions + Workload Identity Federation (no long-lived keys)
+- Observability: Sentry + Cloud Logging
 
-### 前端開發
-1. 使用 TypeScript 進行型別安全開發
-2. 採用函數式元件和 React Hooks
-3. 保持元件小而專注，遵循單一職責原則
-4. 使用 Expo 管理的工作流程 (Managed Workflow)
-5. 支援 iOS、Android 和 Web 三個平台
-6. 實作響應式設計，適配不同螢幕尺寸
-7. 優先使用 Expo SDK 提供的 API
+### Dev environment
+- OS: Windows 11
+- Shell: PowerShell (chain commands with `;`, **never** `&&`)
+- Encoding: UTF-8
 
-### 後端開發
-1. 遵循 RESTful API 設計原則
-2. 使用中間件處理錯誤和日誌
-3. 實作適當的輸入驗證和錯誤處理
-4. 設計無狀態 API，適合 Lambda 部署
-5. 使用環境變數管理配置
-6. 實作 CORS 支援跨域請求
+## Development principles
 
-### 資料庫設計 (DynamoDB)
-1. 設計適合 NoSQL 的資料模型
-2. 優化查詢效能，避免全表掃描
-3. 使用複合主鍵 (Partition Key + Sort Key)
-4. 實作適當的索引策略
+### Frontend
+1. TypeScript everywhere; never use `any` without justification.
+2. Functional components with React Hooks.
+3. Keep components small and focused (single responsibility).
+4. Use the Expo Managed Workflow.
+5. Support iOS, Android, and Web.
+6. Responsive design for varying screen sizes.
+7. Prefer Expo SDK APIs over third-party equivalents.
+8. Every user-facing string goes through i18n
+   (`locales/en.json`, `locales/zh-TW.json`).
 
-## 專案結構
+### Backend
+1. RESTful API design.
+2. Middlewares for error handling, logging, CORS, auth.
+3. Validate inputs and return structured errors.
+4. Stateless handlers (Cloud Run can scale to zero).
+5. Configuration via environment variables (`internal/config`).
+6. Never produce user-facing strings — return i18n keys
+   (e.g. `errors.bill.not_found`); the frontend's `t()` translates them.
 
-### 前端結構
+### Firestore data modelling
+1. Model around access patterns; avoid joins.
+2. Composite keys where appropriate; index queries explicitly.
+3. Use security rules to enforce access at the row level
+   (no client trust).
+
+## Repo layout
+
+### Frontend
 ```
 frontend/wattrent/
-├── app/              # Expo Router 路由頁面
-│   ├── (tabs)/      # Tab 導航頁面
-│   ├── (auth)/      # 認證相關頁面
-│   └── _layout.tsx  # 根布局
-├── components/       # 可重用元件
-├── hooks/           # 自定義 Hooks
-├── services/        # API 服務
-├── utils/           # 工具函數
-├── types/           # TypeScript 型別定義
-└── constants/       # 常數配置
+├── app/              # Expo Router routes
+│   ├── (tabs)/       # Tab navigation pages
+│   └── _layout.tsx   # Root layout
+├── components/       # Reusable components
+├── hooks/            # Custom hooks
+├── services/         # API services
+├── lib/              # Shared libraries (i18n, cn, useColorScheme)
+├── locales/          # i18n source-of-truth
+├── utils/            # Utility functions
+└── types/            # TypeScript type definitions
 ```
 
-### 後端結構
+### Backend
 ```
 backend/
-├── cmd/             # 應用程式入口
-├── internal/        # 內部套件
-│   ├── handlers/    # HTTP 處理器
-│   ├── models/      # 資料模型
-│   ├── services/    # 業務邏輯
-│   └── middleware/  # 中間件
-├── pkg/             # 可重用套件
-└── config/          # 配置檔案
+├── main.go           # Entry point with graceful shutdown
+└── internal/
+    ├── config/       # Centralised env loader
+    ├── clients/      # Firebase / Firestore / GCS / Gemini clients
+    ├── handlers/     # HTTP handlers
+    ├── services/     # Business logic
+    ├── models/       # Data models with firestore tags
+    └── middleware/   # CORS / Auth / ErrorHandler
 ```
 
-## API 設計規範
-1. 使用版本控制: `/api/v1/`
-2. 使用複數資源名稱: `/meters`, `/bills`
-3. HTTP 動詞對應 CRUD 操作
-4. 統一的錯誤回應格式
-5. 使用 JWT 進行身份驗證
+## API conventions
+1. Routes live under `/api/v1/`.
+2. Plural resource nouns (`/bills`, `/settings`, `/uploads`, `/ocr`).
+3. Standard HTTP verbs map to CRUD.
+4. Uniform response shape: `models.ApiResponse{Success, Data, Error, Message}`.
+5. Auth: every endpoint except `/health` requires
+   `Authorization: Bearer <Firebase ID token>`.
+6. Never trust `userId` from the client; always read it from the verified
+   token via `middleware.GetUID(c)`.
 
-## 安全性考量
-1. 實作適當的身份驗證和授權
-2. 使用 HTTPS 加密傳輸
-3. 驗證所有用戶輸入
-4. 實作速率限制防止濫用
-5. 安全儲存敏感資訊
+## Security
+1. Never hard-code secrets / API keys; use env vars + Secret Manager.
+2. HTTPS in production (Cloud Run handles TLS automatically).
+3. Validate all user input.
+4. Rate-limit at the Cloud Run / Cloudflare layer.
+5. GCS objects are private; the frontend uses backend-issued V4 signed URLs
+   (15 min for upload, 1 h for read).
+6. CORS allowlist in production; `*` is forbidden.
 
-## 效能優化
-1. 實作影像壓縮以減少上傳大小
-2. 使用快取策略減少 API 呼叫
-3. 實作分頁和懶加載
-4. 優化 Lambda 冷啟動時間
+## Performance
+1. Compress images before upload.
+2. Cache repeated API responses where appropriate.
+3. Implement pagination + lazy loading for lists.
+4. Watch Cloud Run cold starts (use min-instances when needed).
 
-## 測試策略
-1. 前端使用 Jest 和 React Native Testing Library
-2. 後端使用 Go 內建測試框架
-3. 實作單元測試和整合測試
-4. 目標測試覆蓋率 > 70%
+## Testing
+1. Frontend: Jest + React Native Testing Library (not yet implemented).
+2. Backend: standard `testing` package, table-driven tests.
+3. Aim for >70% coverage on business logic.
 
-## 部署流程
-1. 使用 GitHub Actions 進行 CI/CD
-2. 前端透過 Expo EAS Build 建置
-3. 後端使用 Serverless Framework 或 SAM 部署到 AWS
-4. 實作藍綠部署策略
-
-## 成本優化 (AWS 免費方案)
-1. Lambda: 每月 100 萬次請求免費
-2. API Gateway: 每月 100 萬次 API 呼叫免費
-3. DynamoDB: 25 GB 儲存空間免費
-4. 使用 CloudWatch 監控用量避免超支 
+## Deployment
+1. CI/CD via GitHub Actions with Workload Identity Federation.
+2. Frontend builds via Expo EAS Build.
+3. Backend builds a distroless container and ships to Cloud Run.
+4. Terraform manages all GCP / Cloudflare / Sentry resources.
