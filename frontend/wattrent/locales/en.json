@@ -226,6 +226,12 @@
     "back": "Back to edit",
     "confirm": "Confirm and save",
     "uploadingPhoto": "Uploading photo...",
-    "savingBill": "Saving bill..."
+    "savingBill": "Saving bill...",
+    "anomalyWarning": "This usage ({{usage}} kWh) is more than twice last period ({{prev}} kWh). Please double-check the reading."
+  },
+  "export": {
+    "csvNoBills": "No bills to export.",
+    "csvDialogTitle": "WattRent bill history",
+    "csvFailed": "Failed to export bills."
   }
 } 

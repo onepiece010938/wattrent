@@ -23,6 +23,7 @@ import { currentPeriod } from '~/lib/period';
 import { getDevMode } from '@/lib/devMode';
 import { compressForOcr, base64ToBytes } from '@/lib/imageCompression';
 import { useToast } from '@/components/Toast';
+import telemetry from '@/lib/telemetry';
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -47,6 +48,7 @@ export default function CaptureScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingStage, setSavingStage] = useState<'upload' | 'create' | null>(null);
+  const [lastUsage, setLastUsage] = useState<number | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(false);
 
@@ -81,6 +83,18 @@ export default function CaptureScreen() {
       setPreviousReading(settings.previousMeterReading.toString());
     } catch (error) {
       console.error(t('capture.loadSettingsFailed'), error);
+      telemetry.captureException(error, { scope: 'capture.loadSettings' });
+    }
+
+    // Best-effort: fetch the most recent bill so we can warn the user about
+    // sudden usage spikes (anomaly detection). Failure here is silent.
+    try {
+      const latest = await apiService.getLatestBill();
+      if (latest && typeof latest.electricityUsage === 'number') {
+        setLastUsage(latest.electricityUsage);
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -174,6 +188,7 @@ export default function CaptureScreen() {
       }
     } catch (error) {
       console.error('OCR failed', error);
+      telemetry.captureException(error, { scope: 'capture.ocr' });
       const message = error instanceof Error ? error.message : String(error);
       // Distinguish backend "not configured" 503 from generic failure for clearer UX
       if (message.includes('not_configured') || message.includes('GEMINI')) {
@@ -501,6 +516,23 @@ export default function CaptureScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* Anomaly: usage > 2x previous month is almost certainly a typo. */}
+              {lastUsage != null && lastUsage > 0 && usageNum > lastUsage * 2 && (
+                <View className="bg-amber-50 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded-lg p-3 mb-3 flex-row items-start">
+                  <Ionicons
+                    name="warning"
+                    size={18}
+                    color={isDarkColorScheme ? '#FBBF24' : '#D97706'}
+                  />
+                  <Text className="flex-1 ml-2 text-sm text-amber-800 dark:text-amber-200">
+                    {t('capturePreview.anomalyWarning', {
+                      usage: fmt(usageNum),
+                      prev: fmt(lastUsage),
+                    })}
+                  </Text>
+                </View>
+              )}
 
               {saving && (
                 <View className="flex-row items-center mb-3">

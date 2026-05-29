@@ -12,6 +12,7 @@ import { initI18n } from '../lib/i18n';
 import { loadDevMode } from '@/lib/devMode';
 import { ToastProvider } from '@/components/Toast';
 import DevModeBanner from '@/components/DevModeBanner';
+import telemetry from '@/lib/telemetry';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -28,12 +29,13 @@ export default function RootLayout() {
   const [i18nInitialized, setI18nInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialise i18n + dev-mode persisted state in parallel
+    // Initialise i18n + dev-mode persisted state + telemetry in parallel
     const initialize = async () => {
       try {
-        await Promise.all([initI18n(), loadDevMode()]);
+        await Promise.all([initI18n(), loadDevMode(), telemetry.init()]);
       } catch (error) {
         console.error('Failed to initialize app:', error);
+        telemetry.captureException(error, { scope: 'app.init' });
       } finally {
         setI18nInitialized(true);
       }

@@ -27,6 +27,46 @@ import {
 } from '@/lib/devMode';
 import { useToast } from '@/components/Toast';
 import { resolveApiUrl } from '@/lib/apiUrl';
+import apiService from '@/services/api';
+import telemetry from '@/lib/telemetry';
+import type { Bill } from '@/types';
+
+// Build a CSV body from a list of bills. Quoting wraps every field so commas
+// in things like landlord names don't break parsing.
+function buildBillsCsv(bills: Bill[]): string {
+  const headers = [
+    'period',
+    'meterReading',
+    'previousReading',
+    'electricityUsage',
+    'electricityRate',
+    'electricityCost',
+    'rent',
+    'totalAmount',
+    'paidAt',
+    'createdAt',
+  ];
+  const escape = (v: unknown): string => {
+    const s = v == null ? '' : String(v);
+    return `"${s.replace(/"/g, '""')}"`;
+  };
+  const lines = [headers.join(',')];
+  for (const b of bills) {
+    lines.push([
+      escape(b.period),
+      escape(b.meterReading),
+      escape(b.previousReading),
+      escape(b.electricityUsage),
+      escape(b.electricityRate),
+      escape(b.electricityCost),
+      escape(b.rent),
+      escape(b.totalAmount),
+      escape(b.paidAt ?? ''),
+      escape(b.createdAt ?? ''),
+    ].join(','));
+  }
+  return lines.join('\n');
+}
 
 // System default settings
 const SYSTEM_DEFAULT_SETTINGS: UserSettings = {
@@ -483,9 +523,27 @@ export default function SettingsScreen() {
         { text: t('common.cancel'), style: 'cancel' },
         {
           text: t('common.confirm'),
-          onPress: () => {
-            // TODO: implement data export
-            Alert.alert(t('common.success'), t('settings.dataExported'));
+          onPress: async () => {
+            try {
+              const bills = await apiService.getBills();
+              if (bills.length === 0) {
+                Alert.alert(t('common.error'), t('export.csvNoBills'));
+                return;
+              }
+              const csv = buildBillsCsv(bills);
+              // Plain-text share works on all platforms without extra native deps;
+              // recipients can paste into a spreadsheet. File-based sharing
+              // (expo-sharing + expo-file-system) is a future upgrade.
+              const { Share } = await import('react-native');
+              await Share.share({
+                message: csv,
+                title: t('export.csvDialogTitle'),
+              });
+              showToast({ kind: 'success', message: t('settings.dataExported') });
+            } catch (err) {
+              telemetry.captureException(err, { scope: 'settings.exportCsv' });
+              Alert.alert(t('common.error'), t('export.csvFailed'));
+            }
           },
         },
       ]
