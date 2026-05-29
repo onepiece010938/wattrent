@@ -64,7 +64,11 @@
     "imageProcessingFailed": "Unable to recognize meter reading, please enter manually",
     "createBillFailed": "Unable to create bill, please check network connection",
     "loadSettingsFailed": "Failed to load settings",
-    "createBillFailedConsole": "Failed to create bill"
+    "createBillFailedConsole": "Failed to create bill",
+    "ocrSucceeded": "Reading detected: {{reading}} kWh",
+    "ocrRetry": "Retry OCR",
+    "ocrSkipped": "OCR skipped (dev mode)",
+    "verifyReadingHint": "Please verify the reading from the photo before saving."
   },
   "history": {
     "title": "Bill History",
@@ -91,7 +95,10 @@
     "updatePreviousMeterReadingFailed": "Failed to update previous meter reading",
     "billMessage": "Dear landlord, this month's rent is ${{rent}} plus electricity bill ${{electricityCost}}, total ${{totalAmount}} has been transferred. Please check.",
     "unit": "kWh",
-    "currency": "$"
+    "currency": "$",
+    "loadError": "Could not load bills. Check your network and try again.",
+    "retryLoading": "Retry",
+    "showingMock": "Showing demo data (dev mode)"
   },
   "settings": {
     "title": "Settings",
@@ -150,7 +157,14 @@
   "errors": {
     "backend": {
       "unreachable": "Cannot reach backend at {{url}}: ensure backend is running and your phone is on the same network.",
-      "parseFailed": "HTTP {{status}}: failed to parse response"
+      "parseFailed": "HTTP {{status}}: failed to parse response",
+      "timeout": "Request timed out after {{seconds}}s. Check your network and try again."
+    },
+    "ocr": {
+      "failed": "Could not recognise the meter. Please enter the reading manually.",
+      "lowConfidence": "Reading is uncertain ({{percent}}%). Please verify before saving.",
+      "notConfigured": "OCR is not configured on the server (missing GEMINI_API_KEY).",
+      "compressionFailed": "Failed to prepare image. Please try a different photo."
     }
   },
   "app": {
@@ -174,5 +188,44 @@
     "success": "Success",
     "failed": "Failed",
     "error": "Error"
+  },
+  "dev": {
+    "title": "Developer Mode",
+    "subtitle": "Visible only in development builds.",
+    "skipOcr": "Skip OCR (fake reading)",
+    "skipOcrHint": "Skip Gemini API and fake a meter reading client-side. Saves cost while testing UI.",
+    "forceMockHistory": "Force mock history",
+    "forceMockHistoryHint": "Show built-in sample bills instead of calling the backend.",
+    "apiUrlOverride": "Backend URL override",
+    "apiUrlPlaceholder": "https://...",
+    "apiUrlHint": "Leave empty to use auto-detected URL.",
+    "currentApiUrl": "Current API: {{url}}",
+    "clearCache": "Clear local cache",
+    "clearCacheHint": "Wipes settings + language preference from AsyncStorage.",
+    "clearCacheConfirm": "This will reset all locally stored preferences. Continue?",
+    "clearCacheDone": "Local cache cleared"
+  },
+  "bill": {
+    "detailTitle": "Bill Details",
+    "breakdown": "Breakdown",
+    "photo": "Meter Photo",
+    "noPhoto": "No photo attached",
+    "createdAt": "Created",
+    "paidAt": "Paid",
+    "copyMessage": "Copy Message",
+    "messageCopied": "Message copied",
+    "notFound": "Bill not found"
+  },
+  "capturePreview": {
+    "title": "Confirm Bill",
+    "usage": "Usage: {{usage}} kWh ({{current}} - {{previous}})",
+    "electricityLine": "Electricity: {{usage}} kWh × ${{rate}} = ${{cost}}",
+    "rentLine": "Rent: ${{rent}}",
+    "totalLine": "Total: ${{total}}",
+    "period": "Period: {{period}}",
+    "back": "Back to edit",
+    "confirm": "Confirm and save",
+    "uploadingPhoto": "Uploading photo...",
+    "savingBill": "Saving bill..."
   }
 } 

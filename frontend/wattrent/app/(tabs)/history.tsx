@@ -18,57 +18,74 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatPeriod } from '~/lib/period';
+import { getDevMode } from '@/lib/devMode';
+import { useToast } from '@/components/Toast';
 
 export default function HistoryScreen() {
   const [bills, setBills] = useState<Bill[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [usingMock, setUsingMock] = useState(false);
   const { isDarkColorScheme } = useColorScheme();
   const { t, currentLanguage } = useTranslation();
-
+  const { showToast } = useToast();
   useFocusEffect(
     useCallback(() => {
       loadBills();
     }, [])
   );
 
+  const buildMockBills = (): Bill[] => [
+    {
+      id: 'mock-1',
+      meterReading: 1500,
+      previousReading: 1350,
+      electricityUsage: 150,
+      electricityRate: 4.5,
+      electricityCost: 675,
+      rent: 8000,
+      totalAmount: 8675,
+      period: '2024-01',
+      createdAt: '2024-01-15T10:00:00Z',
+      message: t('history.billMessage', { rent: 8000, electricityCost: 675, totalAmount: 8675 }),
+    },
+    {
+      id: 'mock-2',
+      meterReading: 1680,
+      previousReading: 1500,
+      electricityUsage: 180,
+      electricityRate: 4.5,
+      electricityCost: 810,
+      rent: 8000,
+      totalAmount: 8810,
+      period: '2024-02',
+      createdAt: '2024-02-15T10:00:00Z',
+      paidAt: '2024-02-16T14:30:00Z',
+      message: t('history.billMessage', { rent: 8000, electricityCost: 810, totalAmount: 8810 }),
+    },
+  ];
+
   const loadBills = async () => {
     setRefreshing(true);
+    setLoadError(null);
+
+    // Dev-mode escape hatch: skip the API and show fixed demo data
+    if (__DEV__ && getDevMode().forceMockHistory) {
+      setBills(buildMockBills());
+      setUsingMock(true);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       const billsData = await apiService.getBills();
       setBills(billsData);
+      setUsingMock(false);
     } catch (error) {
       console.error(t('history.loadBillsFailed'), error);
-      // If the API call fails, fall back to mock data
-      const mockBills: Bill[] = [
-        {
-          id: '1',
-          meterReading: 1500,
-          previousReading: 1350,
-          electricityUsage: 150,
-          electricityRate: 4.5,
-          electricityCost: 675,
-          rent: 8000,
-          totalAmount: 8675,
-          period: '2024-01',
-          createdAt: '2024-01-15T10:00:00Z',
-          message: t('history.billMessage', { rent: 8000, electricityCost: 675, totalAmount: 8675 }),
-        },
-        {
-          id: '2',
-          meterReading: 1680,
-          previousReading: 1500,
-          electricityUsage: 180,
-          electricityRate: 4.5,
-          electricityCost: 810,
-          rent: 8000,
-          totalAmount: 8810,
-          period: '2024-02',
-          createdAt: '2024-02-15T10:00:00Z',
-          paidAt: '2024-02-16T14:30:00Z',
-          message: t('history.billMessage', { rent: 8000, electricityCost: 810, totalAmount: 8810 }),
-        },
-      ];
-      setBills(mockBills);
+      // Surface the failure so the user knows what is going on instead of silently faking data
+      setBills([]);
+      setLoadError(error instanceof Error ? error.message : t('history.loadError'));
     } finally {
       setRefreshing(false);
     }
@@ -86,9 +103,9 @@ export default function HistoryScreen() {
       });
 
       if (result.action === Share.sharedAction) {
-        // TODO: update bill shared status
+        // Bill marked as shared client-side only; server-side share log is not implemented yet.
       }
-    } catch (error) {
+    } catch {
       Alert.alert(t('common.error'), t('history.cannotShareMessage'));
     }
   };
@@ -117,7 +134,7 @@ export default function HistoryScreen() {
               const updatedBills = bills.filter(bill => bill.id !== billId);
               setBills(updatedBills);
               
-              Alert.alert(t('common.success'), t('history.billDeleted'));
+              showToast({ kind: 'success', message: t('history.billDeleted') });
             } catch (error) {
               console.error(t('history.deleteBillFailed'), error);
               Alert.alert(t('common.error'), t('history.cannotDeleteBill'));
@@ -148,8 +165,7 @@ export default function HistoryScreen() {
         }
       }
 
-      Alert.alert(t('common.success'), bill.paidAt ? t('history.markAsUnpaid') : t('history.markAsPaid'));
-    } catch (error) {
+      Alert.alert(t('common.success'), bill.paidAt ? t('history.markAsUnpaid') : t('history.markAsPaid'));    } catch (error) {
       console.error(t('history.updatePaymentStatusFailed'), error);
       Alert.alert(t('common.error'), t('history.cannotUpdatePaymentStatus'));
     }
@@ -291,16 +307,51 @@ export default function HistoryScreen() {
             />
           }
           ListEmptyComponent={
-            <View className="flex-1 items-center justify-center py-20">
-              <Ionicons 
-                name="document-text-outline" 
-                size={64} 
-                color={isDarkColorScheme ? '#6B7280' : '#9CA3AF'} 
-              />
-              <Text className="text-muted-foreground text-base mt-4">
-                {t('history.noBills')}
-              </Text>
-            </View>
+            loadError ? (
+              <View className="flex-1 items-center justify-center py-20 px-6">
+                <Ionicons
+                  name="cloud-offline-outline"
+                  size={64}
+                  color={isDarkColorScheme ? '#F87171' : '#DC2626'}
+                />
+                <Text className="text-foreground text-base mt-4 text-center">
+                  {t('history.loadError')}
+                </Text>
+                <Text className="text-muted-foreground text-xs mt-2 text-center" numberOfLines={3}>
+                  {loadError}
+                </Text>
+                <TouchableOpacity
+                  className="mt-6 bg-primary rounded-lg px-6 py-3 flex-row items-center"
+                  onPress={loadBills}
+                >
+                  <Ionicons name="refresh" size={18} color="#FFFFFF" />
+                  <Text className="text-primary-foreground font-semibold ml-2">
+                    {t('history.retryLoading')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="flex-1 items-center justify-center py-20">
+                <Ionicons
+                  name="document-text-outline"
+                  size={64}
+                  color={isDarkColorScheme ? '#6B7280' : '#9CA3AF'}
+                />
+                <Text className="text-muted-foreground text-base mt-4">
+                  {t('history.noBills')}
+                </Text>
+              </View>
+            )
+          }
+          ListHeaderComponent={
+            usingMock ? (
+              <View className="bg-amber-100 dark:bg-amber-900/50 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 mb-3 flex-row items-center">
+                <Ionicons name="flask" size={16} color={isDarkColorScheme ? '#FBBF24' : '#D97706'} />
+                <Text className="ml-2 text-xs text-amber-800 dark:text-amber-200">
+                  {t('history.showingMock')}
+                </Text>
+              </View>
+            ) : null
           }
         />
       </View>

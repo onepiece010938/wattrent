@@ -64,7 +64,11 @@
     "imageProcessingFailed": "無法識別電表度數，請手動輸入",
     "createBillFailed": "無法建立帳單，請檢查網路連線",
     "loadSettingsFailed": "載入設定失敗",
-    "createBillFailedConsole": "建立帳單失敗"
+    "createBillFailedConsole": "建立帳單失敗",
+    "ocrSucceeded": "已識別度數：{{reading}} 度",
+    "ocrRetry": "重試識別",
+    "ocrSkipped": "已跳過 OCR（開發模式）",
+    "verifyReadingHint": "請對照照片確認度數後再儲存。"
   },
   "history": {
     "title": "帳單記錄",
@@ -91,7 +95,10 @@
     "updatePreviousMeterReadingFailed": "更新前次電表度數失敗",
     "billMessage": "房東您好，本月房租{{rent}}元加電費{{electricityCost}}元，總計{{totalAmount}}元已匯款，請查收。",
     "unit": "度",
-    "currency": "元"
+    "currency": "元",
+    "loadError": "無法載入帳單，請檢查網路後重試。",
+    "retryLoading": "重試",
+    "showingMock": "顯示示範資料（開發模式）"
   },
   "settings": {
     "title": "設定",
@@ -150,7 +157,14 @@
   "errors": {
     "backend": {
       "unreachable": "無法連線到後端 ({{url}})：請確認 backend 已啟動，且手機與電腦在同一網路。",
-      "parseFailed": "HTTP {{status}}：無法解析回應"
+      "parseFailed": "HTTP {{status}}：無法解析回應",
+      "timeout": "請求超時（{{seconds}} 秒），請檢查網路後重試。"
+    },
+    "ocr": {
+      "failed": "無法識別電表度數，請手動輸入。",
+      "lowConfidence": "識別信心度偷低（{{percent}}%），請確認度數後儲存。",
+      "notConfigured": "伺服器端未設定 OCR（缺 GEMINI_API_KEY）。",
+      "compressionFailed": "圖片處理失敗，請換一張照片。"
     }
   },
   "app": {
@@ -174,5 +188,44 @@
     "success": "成功",
     "failed": "失敗",
     "error": "錯誤"
+  },
+  "dev": {
+    "title": "開發者模式",
+    "subtitle": "只在 dev build 顯示。",
+    "skipOcr": "跳過 OCR（假度數）",
+    "skipOcrHint": "不呼叫 Gemini，直接以估算值填入度數。測 UI 時省費用。",
+    "forceMockHistory": "強制顯示示範帳單",
+    "forceMockHistoryHint": "跳過後端，直接顯示內建示範帳單。",
+    "apiUrlOverride": "覆寫後端 URL",
+    "apiUrlPlaceholder": "https://...",
+    "apiUrlHint": "留空則使用自動偵測的 URL。",
+    "currentApiUrl": "目前 API：{{url}}",
+    "clearCache": "清除本地快取",
+    "clearCacheHint": "清除 AsyncStorage 裡的設定與語言偏好。",
+    "clearCacheConfirm": "這會重設所有本地設定，確定要繼續嗎？",
+    "clearCacheDone": "本地快取已清除"
+  },
+  "bill": {
+    "detailTitle": "帳單詳情",
+    "breakdown": "明細",
+    "photo": "電表照片",
+    "noPhoto": "未附照片",
+    "createdAt": "建立時間",
+    "paidAt": "匯款時間",
+    "copyMessage": "複製訊息",
+    "messageCopied": "訊息已複製",
+    "notFound": "找不到這筆帳單"
+  },
+  "capturePreview": {
+    "title": "確認帳單",
+    "usage": "用電：{{usage}} 度（{{current}} - {{previous}}）",
+    "electricityLine": "電費：{{usage}} 度 × {{rate}} 元 = {{cost}} 元",
+    "rentLine": "房租：{{rent}} 元",
+    "totalLine": "總計：{{total}} 元",
+    "period": "期別：{{period}}",
+    "back": "返回修改",
+    "confirm": "確認並儲存",
+    "uploadingPhoto": "上傳照片中...",
+    "savingBill": "儲存帳單中..."
   }
 } 

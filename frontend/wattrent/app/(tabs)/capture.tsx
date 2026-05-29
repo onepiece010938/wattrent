@@ -20,23 +20,30 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { currentPeriod } from '~/lib/period';
+import { getDevMode } from '@/lib/devMode';
+import { compressForOcr } from '@/lib/imageCompression';
+import { useToast } from '@/components/Toast';
 
 export default function CaptureScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
   const { isDarkColorScheme } = useColorScheme();
   const { t, currentLanguage } = useTranslation();
+  const { showToast } = useToast();
   // currentLanguage is only used for display; period is always sent to backend as YYYY-MM
   void currentLanguage;
   
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>('back');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [capturedBase64, setCapturedBase64] = useState<string | null>(null);
   const [meterReading, setMeterReading] = useState('');
   const [electricityRate, setElectricityRate] = useState('4.5');
   const [rent, setRent] = useState('8000');
   const [previousReading, setPreviousReading] = useState('0');
   const [processing, setProcessing] = useState(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [lowConfidence, setLowConfidence] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(false);
 
@@ -77,13 +84,13 @@ export default function CaptureScreen() {
   const takePicture = async () => {
     if (cameraRef.current && isCameraReady) {
       try {
+        // Capture at full quality, compression handled separately to control cost
         const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.8,
-          base64: true,
+          quality: 1,
+          base64: false,
         });
         if (photo) {
-          setCapturedImage(photo.uri);
-          processImage(photo.base64 ?? null);
+          await prepareAndProcess(photo.uri);
         }
       } catch (error) {
         console.error(t('capture.takePictureFailed'), error);
@@ -98,14 +105,13 @@ export default function CaptureScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
-        base64: true,
+        quality: 1,
+        base64: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        setCapturedImage(asset.uri);
-        processImage(asset.base64 ?? null);
+        await prepareAndProcess(asset.uri);
       }
     } catch (error) {
       console.error(t('capture.selectImageFailed'), error);
@@ -113,22 +119,73 @@ export default function CaptureScreen() {
     }
   };
 
+  // Compress -> show preview -> kick off OCR. Centralises the camera & gallery flow.
+  const prepareAndProcess = async (uri: string) => {
+    setOcrError(null);
+    setLowConfidence(false);
+    setMeterReading('');
+    setCapturedImage(uri);
+    setCapturedBase64(null);
+    try {
+      const compressed = await compressForOcr(uri);
+      setCapturedBase64(compressed.base64);
+      await processImage(compressed.base64);
+    } catch (error) {
+      console.error('image compression failed', error);
+      setOcrError(t('errors.ocr.compressionFailed'));
+    }
+  };
+
   const processImage = async (imageBase64: string | null) => {
     if (!imageBase64) {
-      // No base64 -> skip OCR and let the user input manually
       return;
     }
+
+    // Dev mode: skip Gemini call entirely to save cost while testing UI
+    if (__DEV__ && getDevMode().skipOcr) {
+      const prev = parseFloat(previousReading) || 0;
+      const fake = String(Math.round(prev + 50 + Math.random() * 150));
+      setMeterReading(fake);
+      showToast({ kind: 'info', message: t('capture.ocrSkipped') });
+      return;
+    }
+
     setProcessing(true);
+    setOcrError(null);
+    setLowConfidence(false);
     try {
       const result = await apiService.processImage({ imageBase64 });
       if (result?.reading != null) {
         setMeterReading(String(result.reading));
+        if (typeof result.confidence === 'number' && result.confidence < 0.85) {
+          setLowConfidence(true);
+          showToast({
+            kind: 'info',
+            message: t('errors.ocr.lowConfidence', { percent: Math.round(result.confidence * 100) }),
+          });
+        } else {
+          showToast({ kind: 'success', message: t('capture.ocrSucceeded', { reading: result.reading }) });
+        }
+      } else {
+        setOcrError(t('errors.ocr.failed'));
       }
     } catch (error) {
-      console.error(t('capture.imageProcessingFailed'), error);
-      Alert.alert(t('common.error'), t('capture.imageProcessingFailed'));
+      console.error('OCR failed', error);
+      const message = error instanceof Error ? error.message : String(error);
+      // Distinguish backend "not configured" 503 from generic failure for clearer UX
+      if (message.includes('not_configured') || message.includes('GEMINI')) {
+        setOcrError(t('errors.ocr.notConfigured'));
+      } else {
+        setOcrError(message || t('errors.ocr.failed'));
+      }
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const retryOcr = () => {
+    if (capturedBase64) {
+      processImage(capturedBase64);
     }
   };
 
@@ -159,12 +216,8 @@ export default function CaptureScreen() {
       });
       void bill;
 
-      Alert.alert(t('common.success'), t('capture.billCalculatedAndSaved'), [
-        {
-          text: t('capture.viewBill'),
-          onPress: () => router.push('/(tabs)/history'),
-        },
-      ]);
+      showToast({ kind: 'success', message: t('capture.billCalculatedAndSaved') });
+      router.push('/(tabs)/history');
     } catch (error) {
       console.error(t('capture.createBillFailedConsole'), error);
       Alert.alert(t('common.error'), t('capture.createBillFailed'));
@@ -173,7 +226,10 @@ export default function CaptureScreen() {
 
   const retake = () => {
     setCapturedImage(null);
+    setCapturedBase64(null);
     setMeterReading('');
+    setOcrError(null);
+    setLowConfidence(false);
   };
 
   const handleCameraFlip = () => {
@@ -235,6 +291,36 @@ export default function CaptureScreen() {
                 </View>
               )}
             </View>
+
+            {ocrError && (
+              <View className="bg-red-50 dark:bg-red-900/40 border border-red-300 dark:border-red-700 rounded-lg p-3 mb-4">
+                <View className="flex-row items-start">
+                  <Ionicons name="alert-circle" size={18} color={isDarkColorScheme ? '#FCA5A5' : '#DC2626'} />
+                  <Text className="flex-1 ml-2 text-sm text-red-700 dark:text-red-200">{ocrError}</Text>
+                </View>
+                {capturedBase64 && (
+                  <TouchableOpacity
+                    className="self-start mt-2 flex-row items-center"
+                    onPress={retryOcr}
+                    disabled={processing}
+                  >
+                    <Ionicons name="refresh" size={16} color={isDarkColorScheme ? '#FCA5A5' : '#DC2626'} />
+                    <Text className="ml-1 text-sm font-semibold text-red-700 dark:text-red-200">
+                      {t('capture.ocrRetry')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {lowConfidence && !ocrError && (
+              <View className="bg-amber-50 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded-lg p-3 mb-4 flex-row items-start">
+                <Ionicons name="warning" size={18} color={isDarkColorScheme ? '#FBBF24' : '#D97706'} />
+                <Text className="flex-1 ml-2 text-sm text-amber-800 dark:text-amber-200">
+                  {t('capture.verifyReadingHint')}
+                </Text>
+              </View>
+            )}
 
             <View className="space-y-4">
               <View>

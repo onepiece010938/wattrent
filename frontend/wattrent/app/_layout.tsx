@@ -9,6 +9,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as NavigationBar from 'expo-navigation-bar';
 import { Platform } from 'react-native';
 import { initI18n } from '../lib/i18n';
+import { loadDevMode } from '@/lib/devMode';
+import { ToastProvider } from '@/components/Toast';
+import DevModeBanner from '@/components/DevModeBanner';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -25,18 +28,18 @@ export default function RootLayout() {
   const [i18nInitialized, setI18nInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialise i18n
-    const initializeI18n = async () => {
+    // Initialise i18n + dev-mode persisted state in parallel
+    const initialize = async () => {
       try {
-        await initI18n();
-        setI18nInitialized(true);
+        await Promise.all([initI18n(), loadDevMode()]);
       } catch (error) {
-        console.error('Failed to initialize i18n:', error);
-        setI18nInitialized(true); // Continue even on failure; fall back to default language
+        console.error('Failed to initialize app:', error);
+      } finally {
+        setI18nInitialized(true);
       }
     };
 
-    initializeI18n();
+    initialize();
   }, []);
 
   useEffect(() => {
@@ -59,11 +62,14 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="auto" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      <ToastProvider>
+        <StatusBar style="auto" />
+        <DevModeBanner />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </ToastProvider>
     </SafeAreaProvider>
   );
 }

@@ -18,6 +18,15 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage, getCurrentLanguage } from '@/lib/i18n';
+import {
+  getDevMode,
+  setDevMode,
+  subscribeDevMode,
+  isDevModeAvailable,
+  type DevModeState,
+} from '@/lib/devMode';
+import { useToast } from '@/components/Toast';
+import { resolveApiUrl } from '@/lib/apiUrl';
 
 // System default settings
 const SYSTEM_DEFAULT_SETTINGS: UserSettings = {
@@ -37,6 +46,9 @@ export default function SettingsScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const { isDarkColorScheme } = useColorScheme();
   const { t, changeLanguage, currentLanguage } = useTranslation();
+  const { showToast } = useToast();
+  const devModeAvailable = isDevModeAvailable();
+  const [devModeState, setDevModeStateLocal] = useState<DevModeState>(getDevMode());
   
   const [settings, setSettings] = useState<UserSettings>({
     defaultElectricityRate: 4.5,
@@ -131,6 +143,13 @@ export default function SettingsScreen() {
     console.log('settings page loaded');
     loadSettings(true); // Force reload on first load
   }, []);
+
+  // Subscribe to dev-mode changes so other parts of the app can update state too
+  useEffect(() => {
+    if (!devModeAvailable) return;
+    const unsubscribe = subscribeDevMode(setDevModeStateLocal);
+    return unsubscribe;
+  }, [devModeAvailable]);
 
   // useFocusEffect for focus / blur handling
   useFocusEffect(
@@ -427,7 +446,7 @@ export default function SettingsScreen() {
       await performSave();
       
       if (showSuccessAlert) {
-        Alert.alert(t('common.success'), t('settings.settingsSaved'));
+        showToast({ kind: 'success', message: t('settings.settingsSaved') });
       }
     } catch (error) {
       console.error(t('settings.saveSettingsFailed'), error);
@@ -673,6 +692,77 @@ export default function SettingsScreen() {
               />
             </View>
           </View>
+
+          {/* Developer mode (debug builds only) */}
+          {devModeAvailable && (
+            <View className="bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-2xl p-5 mb-5 shadow-sm">
+              <View className="flex-row items-center mb-1">
+                <Ionicons name="flask-outline" size={20} color={isDarkColorScheme ? '#FBBF24' : '#B45309'} />
+                <Text className="text-lg font-semibold text-amber-900 dark:text-amber-100 ml-2">
+                  {t('dev.title')}
+                </Text>
+              </View>
+              <Text className="text-xs text-amber-800 dark:text-amber-200 mb-4">
+                {t('dev.subtitle')}
+              </Text>
+
+              <View className="flex-row items-center justify-between py-2">
+                <View className="flex-1 pr-3">
+                  <Text className="text-base text-gray-900 dark:text-gray-100">
+                    {t('dev.skipOcr')}
+                  </Text>
+                  <Text className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                    {t('dev.skipOcrHint')}
+                  </Text>
+                </View>
+                <Switch
+                  value={devModeState.skipOcr}
+                  onValueChange={(v) => setDevMode({ skipOcr: v })}
+                  trackColor={{ false: '#D1D5DB', true: '#F59E0B' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              <View className="flex-row items-center justify-between py-2">
+                <View className="flex-1 pr-3">
+                  <Text className="text-base text-gray-900 dark:text-gray-100">
+                    {t('dev.forceMockHistory')}
+                  </Text>
+                  <Text className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                    {t('dev.forceMockHistoryHint')}
+                  </Text>
+                </View>
+                <Switch
+                  value={devModeState.forceMockHistory}
+                  onValueChange={(v) => setDevMode({ forceMockHistory: v })}
+                  trackColor={{ false: '#D1D5DB', true: '#F59E0B' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              <View className="mt-3">
+                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('dev.apiUrlOverride')}
+                </Text>
+                <TextInput
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
+                  value={devModeState.apiUrlOverride}
+                  onChangeText={(v) => setDevMode({ apiUrlOverride: v.trim() })}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                  placeholder={t('dev.apiUrlPlaceholder')}
+                  placeholderTextColor="#9CA3AF"
+                />
+                <Text className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {t('dev.apiUrlHint')}
+                </Text>
+                <Text className="text-xs text-amber-800 dark:text-amber-200 mt-2" numberOfLines={2}>
+                  {t('dev.currentApiUrl', { url: resolveApiUrl() })}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Save and reset buttons */}
           <View className="mt-8 px-4">

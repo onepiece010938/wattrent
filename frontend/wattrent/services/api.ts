@@ -2,8 +2,6 @@ import { ApiResponse, Bill, OCRResult } from '@/types';
 import { resolveApiUrl } from '@/lib/apiUrl';
 import i18n from '@/lib/i18n';
 
-const API_BASE_URL = resolveApiUrl();
-
 export interface CreateBillPayload {
   meterReading: number;
   electricityRate: number;
@@ -19,6 +17,13 @@ export interface SignedUploadResult {
   expiresAt: string;
 }
 
+export interface RequestOptions extends Omit<RequestInit, 'signal'> {
+  /** Request-specific timeout in milliseconds. Defaults to 15s. OCR uses 30s. */
+  timeoutMs?: number;
+}
+
+const DEFAULT_TIMEOUT_MS = 15_000;
+
 class ApiService {
   /** Will be replaced with a Firebase Auth token provider once auth is wired in. */
   private authTokenProvider: (() => Promise<string | null>) | null = null;
@@ -27,14 +32,16 @@ class ApiService {
     this.authTokenProvider = provider;
   }
 
+  /** Resolved per call so the dev-mode override picks up immediately. */
   getBaseUrl(): string {
-    return API_BASE_URL;
+    return resolveApiUrl();
   }
 
   private async request<T>(
     endpoint: string,
-    options?: RequestInit
+    options?: RequestOptions,
   ): Promise<ApiResponse<T>> {
+    const baseUrl = this.getBaseUrl();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...((options?.headers as Record<string, string>) ?? {}),
@@ -49,17 +56,30 @@ class ApiService {
       }
     }
 
+    const controller = new AbortController();
+    const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     let response: Response;
     try {
-      response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+      const { timeoutMs: _tmo, ...fetchOptions } = options ?? {};
+      void _tmo;
+      response = await fetch(`${baseUrl}${endpoint}`, {
+        ...fetchOptions,
+        headers,
+        signal: controller.signal,
+      });
     } catch (err) {
+      clearTimeout(timer);
+      if ((err as Error)?.name === 'AbortError') {
+        throw new Error(i18n.t('errors.backend.timeout', { seconds: Math.round(timeoutMs / 1000) }));
+      }
       if (err instanceof TypeError) {
-        throw new Error(
-          i18n.t('errors.backend.unreachable', { url: API_BASE_URL }),
-        );
+        throw new Error(i18n.t('errors.backend.unreachable', { url: baseUrl }));
       }
       throw err;
     }
+    clearTimeout(timer);
 
     let data: ApiResponse<T>;
     try {
@@ -79,6 +99,8 @@ class ApiService {
     const response = await this.request<OCRResult>('/ocr/process', {
       method: 'POST',
       body: JSON.stringify(input),
+      // Gemini can take a few seconds; allow 30s before we give up
+      timeoutMs: 30_000,
     });
     return response.data!;
   }
