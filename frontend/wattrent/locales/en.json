@@ -132,7 +132,27 @@
     "unsavedChangesMessage": "You have unsaved changes. Do you want to save before leaving?",
     "discardChanges": "Discard Changes",
     "saveAndLeave": "Save and Leave",
-    "hasUnsavedChanges": "Has unsaved changes"
+    "hasUnsavedChanges": "Has unsaved changes",
+    "account": "Account",
+    "signedInAs": "Signed in as",
+    "unknownUser": "Unknown user",
+    "authMode": {
+      "firebase": "Signed in with Firebase",
+      "bypass": "Local dev (AUTH_BYPASS=true)",
+      "disabled": "Auth disabled"
+    },
+    "signOut": "Sign out",
+    "signOutTitle": "Sign out?",
+    "signOutMessage": "You will need to sign in again to view or edit your bills.",
+    "signedOut": "Signed out",
+    "signOutFailed": "Failed to sign out. Please try again.",
+    "deleteAccount": "Delete account",
+    "deleteAccountTitle": "Delete account?",
+    "deleteAccountMessage": "This permanently removes your account and you will lose access to your bills. This cannot be undone.",
+    "deleteAccountConfirm": "Yes, delete",
+    "accountDeleted": "Account deleted",
+    "deleteAccountFailed": "Failed to delete account. Please try again.",
+    "deleteAccountRecentLogin": "For your security, please sign in again before deleting your account."
   },
   "paymentMethods": {
     "bankTransfer": "Bank Transfer",
@@ -165,6 +185,10 @@
       "lowConfidence": "Reading is uncertain ({{percent}}%). Please verify before saving.",
       "notConfigured": "OCR is not configured on the server (missing GEMINI_API_KEY).",
       "compressionFailed": "Failed to prepare image. Please try a different photo."
+    },
+    "rate_limited": "Too many requests. Please slow down and try again in a minute.",
+    "user": {
+      "not_found": "User profile not found."
     }
   },
   "app": {
@@ -180,14 +204,6 @@
     "markAsUnpaid": "Mark as Unpaid",
     "deleteBill": "Delete Bill",
     "cancel": "Cancel"
-  },
-  "networkTest": {
-    "title": "Network Connection Test",
-    "testConnection": "Test Connection",
-    "testing": "Testing...",
-    "success": "Success",
-    "failed": "Failed",
-    "error": "Error"
   },
   "dev": {
     "title": "Developer Mode",
@@ -233,5 +249,44 @@
     "csvNoBills": "No bills to export.",
     "csvDialogTitle": "WattRent bill history",
     "csvFailed": "Failed to export bills."
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "signInTitle": "Welcome back",
+    "signInSubtitle": "Sign in to sync your bills across devices.",
+    "signUpTitle": "Create your account",
+    "signUpSubtitle": "We use your email only for sign-in and password reset.",
+    "resetTitle": "Reset password",
+    "resetSubtitle": "We will email you a link to set a new password.",
+    "resetSent": "If an account exists for that email, a reset link is on its way.",
+    "backToSignIn": "Back to sign in",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "passwordHint": "At least 8 characters",
+    "displayName": "Display name (optional)",
+    "displayNamePlaceholder": "How should we address you?",
+    "forgotPassword": "Forgot password?",
+    "createAccount": "Create an account",
+    "sendReset": "Send reset email",
+    "notConfigured": "Sign-in is not configured for this build.",
+    "notConfiguredHint": "EXPO_PUBLIC_FIREBASE_* environment variables are missing. Add them and rebuild.",
+    "errors": {
+      "missingFields": "Please fill in both email and password.",
+      "passwordTooShort": "Password must be at least 8 characters long.",
+      "passwordMismatch": "Passwords do not match.",
+      "invalidEmail": "That email looks invalid.",
+      "invalidCredentials": "Email or password is incorrect.",
+      "userDisabled": "This account has been disabled. Contact support.",
+      "emailInUse": "An account already exists with this email.",
+      "weakPassword": "Password is too weak. Use 8+ characters with a mix of letters and numbers.",
+      "tooManyRequests": "Too many attempts. Please wait a few minutes and try again.",
+      "network": "Network error. Check your connection and try again.",
+      "operationNotAllowed": "Email/password sign-in is not enabled. Contact support.",
+      "requiresRecentLogin": "Please sign in again before retrying this action.",
+      "notSignedIn": "You are not signed in.",
+      "generic": "Something went wrong. Please try again."
+    }
   }
-} 
+}

@@ -114,6 +114,31 @@ class ApiService {
     return response.data!;
   }
 
+  // Users
+  /**
+   * Idempotent: backend upserts /users/{uid}. Safe to call on every sign-in.
+   */
+  async bootstrapUser(profile?: { displayName?: string; photoURL?: string }): Promise<void> {
+    await this.request<unknown>('/users/me', {
+      method: 'POST',
+      body: JSON.stringify({
+        displayName: profile?.displayName ?? '',
+        photoUrl: profile?.photoURL ?? '',
+      }),
+    });
+  }
+
+  async getMe(): Promise<{ uid: string; email: string; displayName?: string } | null> {
+    try {
+      const response = await this.request<{ uid: string; email: string; displayName?: string }>('/users/me');
+      return response.data ?? null;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not_found')) return null;
+      throw err;
+    }
+  }
+
   /**
    * PUT the binary body straight to a signed upload URL (returned by signUpload()).
    * Bypasses the API request envelope; the signed URL is hosted by GCS itself.

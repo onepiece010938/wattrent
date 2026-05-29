@@ -1,7 +1,9 @@
 import { UserSettings } from '@/types';
 import { resolveApiUrl } from '@/lib/apiUrl';
 
-const API_BASE_URL = resolveApiUrl();
+// Resolved per call so the dev-mode override and runtime config picks up
+// immediately (rather than freezing whatever was set at module load time).
+const baseUrl = (): string => resolveApiUrl();
 
 // Fields aligned with backend models.UserSettings (no userId; that is determined by the token).
 type SettingsPayload = Omit<UserSettings, 'userId' | 'updatedAt'>;
@@ -33,7 +35,7 @@ async function authedFetch(path: string, init: RequestInit = {}): Promise<Respon
       console.warn('settings: failed to get auth token', err);
     }
   }
-  return fetch(`${API_BASE_URL}${path}`, { ...init, headers });
+  return fetch(`${baseUrl()}${path}`, { ...init, headers });
 }
 
 function toPayload(s: UserSettings): SettingsPayload {
@@ -60,7 +62,7 @@ class SettingsService {
       }
       return DEFAULT_SETTINGS;
     } catch (err) {
-      console.warn(`settings: GET /settings failed (${API_BASE_URL}), using defaults`, err);
+      console.warn(`settings: GET /settings failed (${baseUrl()}), using defaults`, err);
       return DEFAULT_SETTINGS;
     }
   }
@@ -105,7 +107,7 @@ class SettingsService {
 
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${API_BASE_URL}/health`, { method: 'GET' });
+      const res = await fetch(`${baseUrl()}/health`, { method: 'GET' });
       return res.ok;
     } catch {
       return false;

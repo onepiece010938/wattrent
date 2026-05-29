@@ -143,9 +143,9 @@ See [terraform/README.md](../terraform/README.md) and [.github/workflows/README.
 3. ~~Backend stored data in memory only~~ → now on Firestore.
 4. ~~No auth (hard-coded user1)~~ → Firebase Auth wired up; local dev uses `AUTH_BYPASS=true`.
 5. ~~OCR was a stub~~ → backend now calls Gemini (defaults to AI Studio API via the `google.golang.org/genai` unified SDK); the frontend `capture.tsx` still needs to call `apiService.processImage()`.
-6. Hard-coded `192.168.0.172` / `ngrok` URLs are still scattered through the frontend; needs cleanup.
-7. `app.json` and `app.config.js` both exist; pick one.
-8. No test coverage yet.
+6. ~~Hard-coded `192.168.0.172` / `ngrok` URLs are still scattered through the frontend~~ → removed; use `EXPO_PUBLIC_API_URL` + `lib/apiUrl.ts`.
+7. `app.json` and `app.config.js` both exist; `app.config.js` is canonical (Expo loads `.js` when both are present). `app.json` only kept as fallback for non-config-aware tools.
+8. ~~No test coverage yet~~ → Jest + jest-expo wired up; backend has `go test`; both grow incrementally.
 
 ## Documentation rules
 

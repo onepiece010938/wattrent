@@ -7,22 +7,66 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_ENV": "development",
+        "EXPO_PUBLIC_DEV_MODE_ENABLED": "true"
+      }
     },
     "preview": {
       "distribution": "internal",
-      "channel": "preview"
-    },
-    "production": {
-      "autoIncrement": true,
-      "channel": "production"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_ENV": "preview",
+        "EXPO_PUBLIC_DEV_MODE_ENABLED": "true"
+      }
     },
     "staging": {
       "distribution": "internal",
-      "channel": "staging"
+      "channel": "staging",
+      "env": {
+        "EXPO_PUBLIC_ENV": "staging",
+        "EXPO_PUBLIC_DEV_MODE_ENABLED": "true",
+        "EXPO_PUBLIC_API_URL": "$EXPO_PUBLIC_API_URL_STAGING",
+        "EXPO_PUBLIC_SENTRY_DSN": "$EXPO_PUBLIC_SENTRY_DSN_FRONTEND",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "$EXPO_PUBLIC_FIREBASE_API_KEY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "$EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "$EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "$EXPO_PUBLIC_FIREBASE_APP_ID",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "$EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "$EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "$EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "$EXPO_PUBLIC_API_URL_PRODUCTION",
+        "EXPO_PUBLIC_SENTRY_DSN": "$EXPO_PUBLIC_SENTRY_DSN_FRONTEND",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "$EXPO_PUBLIC_FIREBASE_API_KEY",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "$EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "$EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "$EXPO_PUBLIC_FIREBASE_APP_ID",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "$EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "$EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+        "EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID": "$EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "REPLACE_ME@example.com",
+        "ascAppId": "REPLACE_ME_ASC_APP_ID",
+        "appleTeamId": "REPLACE_ME_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./play-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    }
   }
 }

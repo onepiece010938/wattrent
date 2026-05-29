@@ -33,6 +33,7 @@
     "expo-splash-screen": "~55.0.21",
     "expo-status-bar": "~55.0.6",
     "expo-updates": "~55.0.22",
+    "firebase": "^12.14.0",
     "i18next": "^25.2.1",
     "nativewind": "^4.1.23",
     "react": "19.2.0",

@@ -83,8 +83,9 @@ func main() {
 	billSvc := services.NewBillService(cls.Firestore, settingsSvc)
 	storageSvc := services.NewStorageService(cls.Storage, cfg.MetersBucket)
 	ocrSvc := services.NewOCRService(cls.Gemini, storageSvc, cfg.GeminiModel)
+	userSvc := services.NewUserService(cls.Firestore)
 
-	router := buildRouter(cfg, cls, settingsSvc, billSvc, storageSvc, ocrSvc)
+	router := buildRouter(cfg, cls, settingsSvc, billSvc, storageSvc, ocrSvc, userSvc)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -121,12 +122,15 @@ func buildRouter(
 	billSvc *services.BillService,
 	storageSvc *services.StorageService,
 	ocrSvc *services.OCRService,
+	userSvc *services.UserService,
 ) *gin.Engine {
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.New()
+	// RequestID runs first so every subsequent middleware / log line carries it.
+	r.Use(middleware.RequestID())
 	r.Use(gin.Recovery())
 	// sentrygin is registered AFTER Recovery so that its deferred recover()
 	// runs first on the way back up the middleware stack: it captures the
@@ -135,6 +139,7 @@ func buildRouter(
 		r.Use(sentrygin.New(sentrygin.Options{Repanic: true, WaitForDelivery: false}))
 	}
 	r.Use(middleware.CORS(cfg))
+	r.Use(middleware.RequestLogger())
 	r.Use(middleware.ErrorHandler())
 
 	// Cloud Run health check (no auth required)
@@ -147,18 +152,31 @@ func buildRouter(
 	settingsHandler := handlers.NewSettingsHandler(settingsSvc)
 	ocrHandler := handlers.NewOCRHandler(ocrSvc)
 	uploadHandler := handlers.NewUploadHandler(storageSvc)
+	userHandler := handlers.NewUserHandler(userSvc)
 
 	api := r.Group("/api/v1")
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok", "version": version})
 	})
 
+	// Per-uid token-bucket rate limit. Generous enough to never hit during normal
+	// use, but stops a single account from accidentally (or maliciously) DDoSing
+	// us. Numbers tuned around: 1 capture / 5s = 0.2 rps; allow 30 req/min burst.
+	apiLimiter := middleware.NewRateLimit(0.5 /* tokens/sec ≈ 30/min */, 30 /* burst */, 10*time.Minute)
+	// Stricter limit for the expensive OCR endpoint (Gemini calls cost money).
+	ocrLimiter := middleware.NewRateLimit(0.05 /* 3/min */, 10 /* burst */, 10*time.Minute)
+
 	// Everything below requires auth
 	authed := api.Group("")
 	authed.Use(middleware.Auth(cls.Auth, cfg))
+	authed.Use(apiLimiter.Middleware())
 	{
-		// OCR
-		authed.POST("/ocr/process", ocrHandler.Process)
+		// Users
+		authed.GET("/users/me", userHandler.GetMe)
+		authed.POST("/users/me", userHandler.UpsertMe)
+
+		// OCR (extra rate limit on top of the global one)
+		authed.POST("/ocr/process", ocrLimiter.Middleware(), ocrHandler.Process)
 
 		// Uploads
 		authed.POST("/uploads/sign", uploadHandler.Sign)

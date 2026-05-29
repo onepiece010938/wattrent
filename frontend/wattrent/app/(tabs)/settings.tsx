@@ -29,6 +29,7 @@ import { useToast } from '@/components/Toast';
 import { resolveApiUrl } from '@/lib/apiUrl';
 import apiService from '@/services/api';
 import telemetry from '@/lib/telemetry';
+import { useAuth } from '@/lib/auth';
 import type { Bill } from '@/types';
 
 // Build a CSV body from a list of bills. Quoting wraps every field so commas
@@ -87,6 +88,7 @@ export default function SettingsScreen() {
   const { isDarkColorScheme } = useColorScheme();
   const { t, changeLanguage, currentLanguage } = useTranslation();
   const { showToast } = useToast();
+  const { user, mode: authMode, signOut, deleteAccount } = useAuth();
   const devModeAvailable = isDevModeAvailable();
   const [devModeState, setDevModeStateLocal] = useState<DevModeState>(getDevMode());
   
@@ -666,12 +668,101 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Account */}
+          <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
+            <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              {t('settings.account')}
+            </Text>
+
+            <View className="py-3 border-b border-gray-200 dark:border-gray-700">
+              <Text className="text-xs text-gray-500 dark:text-gray-400">{t('settings.signedInAs')}</Text>
+              <Text className="text-base text-gray-900 dark:text-gray-100 mt-1">
+                {user?.displayName || user?.email || t('settings.unknownUser')}
+              </Text>
+              {user?.email && user?.displayName ? (
+                <Text className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{user.email}</Text>
+              ) : null}
+              <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                {t(`settings.authMode.${authMode}`)}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              className="flex-row items-center justify-between py-4 border-b border-gray-200 dark:border-gray-700"
+              onPress={() => {
+                Alert.alert(
+                  t('settings.signOutTitle'),
+                  t('settings.signOutMessage'),
+                  [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('settings.signOut'),
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await signOut();
+                          showToast({ kind: 'success', message: t('settings.signedOut') });
+                        } catch (err) {
+                          telemetry.captureException(err, { scope: 'settings.signOut' });
+                          Alert.alert(t('common.error'), t('settings.signOutFailed'));
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="log-out-outline" size={24} color="#F59E0B" />
+                <Text className="text-base text-gray-900 dark:text-gray-100 ml-3">{t('settings.signOut')}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              className="flex-row items-center justify-between py-4"
+              onPress={() => {
+                Alert.alert(
+                  t('settings.deleteAccountTitle'),
+                  t('settings.deleteAccountMessage'),
+                  [
+                    { text: t('common.cancel'), style: 'cancel' },
+                    {
+                      text: t('settings.deleteAccountConfirm'),
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await deleteAccount();
+                          showToast({ kind: 'success', message: t('settings.accountDeleted') });
+                        } catch (err) {
+                          telemetry.captureException(err, { scope: 'settings.deleteAccount' });
+                          const msg = err instanceof Error && err.message.includes('recent')
+                            ? t('settings.deleteAccountRecentLogin')
+                            : t('settings.deleteAccountFailed');
+                          Alert.alert(t('common.error'), msg);
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <View className="flex-row items-center">
+                <Ionicons name="person-remove-outline" size={24} color="#EF4444" />
+                <Text className="text-base text-red-600 dark:text-red-400 ml-3">
+                  {t('settings.deleteAccount')}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+
           {/* Data management */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {t('settings.dataManagement')}
             </Text>
-            
+
             <TouchableOpacity
               className="flex-row items-center justify-between py-4 border-b border-gray-200 dark:border-gray-700"
               onPress={handleExport}
@@ -698,7 +789,7 @@ export default function SettingsScreen() {
               <Ionicons name="chevron-forward" size={20} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
-          
+
           {/* Language settings */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

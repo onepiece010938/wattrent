@@ -132,7 +132,27 @@
     "unsavedChangesMessage": "您有未儲存的變更，是否要儲存後離開？",
     "discardChanges": "放棄變更",
     "saveAndLeave": "儲存並離開",
-    "hasUnsavedChanges": "有未儲存的變更"
+    "hasUnsavedChanges": "有未儲存的變更",
+    "account": "帳號",
+    "signedInAs": "目前登入",
+    "unknownUser": "未知用戶",
+    "authMode": {
+      "firebase": "已使用 Firebase 登入",
+      "bypass": "本機開發模式（AUTH_BYPASS=true）",
+      "disabled": "未啟用驗證"
+    },
+    "signOut": "登出",
+    "signOutTitle": "確定要登出？",
+    "signOutMessage": "登出後需要重新登入才能查看或編輯帳單。",
+    "signedOut": "已登出",
+    "signOutFailed": "登出失敗，請再試一次。",
+    "deleteAccount": "刪除帳號",
+    "deleteAccountTitle": "確定要刪除帳號？",
+    "deleteAccountMessage": "此操作會永久刪除帳號，且您將無法再存取已建立的帳單，且無法復原。",
+    "deleteAccountConfirm": "確認刪除",
+    "accountDeleted": "帳號已刪除",
+    "deleteAccountFailed": "刪除帳號失敗，請再試一次。",
+    "deleteAccountRecentLogin": "為了帳號安全，請重新登入後再執行刪除操作。"
   },
   "paymentMethods": {
     "bankTransfer": "銀行轉帳",
@@ -165,6 +185,10 @@
       "lowConfidence": "識別信心度偷低（{{percent}}%），請確認度數後儲存。",
       "notConfigured": "伺服器端未設定 OCR（缺 GEMINI_API_KEY）。",
       "compressionFailed": "圖片處理失敗，請換一張照片。"
+    },
+    "rate_limited": "操作太頻繁，請稍後再試。",
+    "user": {
+      "not_found": "找不到使用者資料。"
     }
   },
   "app": {
@@ -180,14 +204,6 @@
     "markAsUnpaid": "標記為尚未匯款",
     "deleteBill": "刪除帳單",
     "cancel": "取消"
-  },
-  "networkTest": {
-    "title": "網路連線測試",
-    "testConnection": "測試連線",
-    "testing": "測試中...",
-    "success": "成功",
-    "failed": "失敗",
-    "error": "錯誤"
   },
   "dev": {
     "title": "開發者模式",
@@ -233,5 +249,44 @@
     "csvNoBills": "沒有帳單可匯出。",
     "csvDialogTitle": "WattRent 帳單記錄",
     "csvFailed": "帳單匯出失敗。"
+  },
+  "auth": {
+    "signIn": "登入",
+    "signUp": "註冊",
+    "signInTitle": "歡迎回來",
+    "signInSubtitle": "登入以在不同裝置間同步您的帳單。",
+    "signUpTitle": "建立您的帳號",
+    "signUpSubtitle": "我們只會用您的 email 登入及密碼重設。",
+    "resetTitle": "重設密碼",
+    "resetSubtitle": "我們會寄出一封 email 讓您設定新密碼。",
+    "resetSent": "若該 email 已註冊，重設連結即將送達。",
+    "backToSignIn": "返回登入",
+    "email": "電子郵件",
+    "password": "密碼",
+    "confirmPassword": "再次輸入密碼",
+    "passwordHint": "至少 8 個字元",
+    "displayName": "顯示名稱（選填）",
+    "displayNamePlaceholder": "我們可以怎麼稱呼您？",
+    "forgotPassword": "忘記密碼？",
+    "createAccount": "建立帳號",
+    "sendReset": "寄出重設信",
+    "notConfigured": "此版本未設定登入功能。",
+    "notConfiguredHint": "缺少 EXPO_PUBLIC_FIREBASE_* 環境變數，請補上後重新建置。",
+    "errors": {
+      "missingFields": "請輸入 email 與密碼。",
+      "passwordTooShort": "密碼長度需至少 8 個字元。",
+      "passwordMismatch": "兩次輸入的密碼不一致。",
+      "invalidEmail": "email 格式有誤。",
+      "invalidCredentials": "email 或密碼錯誤。",
+      "userDisabled": "此帳號已被停用，請聯絡客服。",
+      "emailInUse": "此 email 已被使用。",
+      "weakPassword": "密碼太弱，請使用 8 個字元以上並混合英數字。",
+      "tooManyRequests": "嘗試次數過多，請稍候幾分鐘再試。",
+      "network": "網路錯誤，請檢查連線後再試。",
+      "operationNotAllowed": "email/密碼登入尚未啟用，請聯絡客服。",
+      "requiresRecentLogin": "基於安全考量，請重新登入後再執行此操作。",
+      "notSignedIn": "您尚未登入。",
+      "generic": "發生未預期錯誤，請稍後再試。"
+    }
   }
-} 
+}

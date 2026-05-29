@@ -15,7 +15,7 @@ import apiService from '@/services/api';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatPeriod } from '~/lib/period';
-import { getDevMode } from '@/lib/devMode';
+import { getDevMode, isDevModeAvailable } from '@/lib/devMode';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -66,7 +66,7 @@ export default function HistoryScreen() {
     setLoadError(null);
 
     // Dev-mode escape hatch: skip the API and show fixed demo data
-    if (__DEV__ && getDevMode().forceMockHistory) {
+    if (isDevModeAvailable() && getDevMode().forceMockHistory) {
       setBills(buildMockBills());
       setUsingMock(true);
       setRefreshing(false);

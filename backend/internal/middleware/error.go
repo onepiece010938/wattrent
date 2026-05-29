@@ -67,6 +67,7 @@ func ErrorHandler() gin.HandlerFunc {
 			"method", c.Request.Method,
 			"status", appErr.HTTPStatus,
 			"key", appErr.Key,
+			"requestId", RequestIDFromContext(c),
 			"err", err,
 		)
 
@@ -81,7 +82,10 @@ func ErrorHandler() gin.HandlerFunc {
 					if route := c.FullPath(); route != "" {
 						scope.SetTag("route", route)
 					}
-					if uidVal, ok := c.Get("uid"); ok {
+					if rid := RequestIDFromContext(c); rid != "" {
+						scope.SetTag("request_id", rid)
+					}
+					if uidVal, ok := c.Get(ContextKeyUID); ok {
 						if uid, ok := uidVal.(string); ok && uid != "" {
 							scope.SetUser(sentry.User{ID: uid})
 						}

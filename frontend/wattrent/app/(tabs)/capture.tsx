@@ -20,7 +20,7 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { currentPeriod } from '~/lib/period';
-import { getDevMode } from '@/lib/devMode';
+import { getDevMode, isDevModeAvailable } from '@/lib/devMode';
 import { compressForOcr, base64ToBytes } from '@/lib/imageCompression';
 import { useToast } from '@/components/Toast';
 import telemetry from '@/lib/telemetry';
@@ -159,7 +159,7 @@ export default function CaptureScreen() {
     }
 
     // Dev mode: skip Gemini call entirely to save cost while testing UI
-    if (__DEV__ && getDevMode().skipOcr) {
+    if (isDevModeAvailable() && getDevMode().skipOcr) {
       const prev = parseFloat(previousReading) || 0;
       const fake = String(Math.round(prev + 50 + Math.random() * 150));
       setMeterReading(fake);
