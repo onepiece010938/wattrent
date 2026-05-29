@@ -6,6 +6,8 @@ require (
 	cloud.google.com/go/firestore v1.22.0
 	cloud.google.com/go/storage v1.62.1
 	firebase.google.com/go/v4 v4.19.0
+	github.com/getsentry/sentry-go v0.46.2
+	github.com/getsentry/sentry-go/gin v0.46.2
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
 	google.golang.org/api v0.279.0
@@ -36,7 +38,6 @@ require (
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
-	github.com/getsentry/sentry-go v0.46.2 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect

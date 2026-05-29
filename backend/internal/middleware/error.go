@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -67,6 +69,27 @@ func ErrorHandler() gin.HandlerFunc {
 			"key", appErr.Key,
 			"err", err,
 		)
+
+		// Report 5xx errors to Sentry (4xx are client-side problems and not actionable).
+		// GetHubFromContext returns nil when sentrygin is not installed (e.g. SENTRY_DSN unset),
+		// so this whole block is a no-op in that case.
+		if appErr.HTTPStatus >= 500 {
+			if hub := sentrygin.GetHubFromContext(c); hub != nil {
+				hub.WithScope(func(scope *sentry.Scope) {
+					scope.SetTag("error_key", appErr.Key)
+					scope.SetTag("http_status", http.StatusText(appErr.HTTPStatus))
+					if route := c.FullPath(); route != "" {
+						scope.SetTag("route", route)
+					}
+					if uidVal, ok := c.Get("uid"); ok {
+						if uid, ok := uidVal.(string); ok && uid != "" {
+							scope.SetUser(sentry.User{ID: uid})
+						}
+					}
+					hub.CaptureException(err)
+				})
+			}
+		}
 
 		c.AbortWithStatusJSON(appErr.HTTPStatus, models.ApiResponse{
 			Success: false,

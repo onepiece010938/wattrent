@@ -69,24 +69,24 @@ type OCRResult struct {
 // Bill is a single bill.
 // Path: /users/{uid}/bills/{billId}
 type Bill struct {
-	ID               string     `firestore:"-"                 json:"id"`
-	Period           string     `firestore:"period"             json:"period"`
-	PeriodStart      time.Time  `firestore:"periodStart"        json:"periodStart"`
-	MeterReading     float64    `firestore:"meterReading"       json:"meterReading"`
-	PreviousReading  float64    `firestore:"previousReading"    json:"previousReading"`
-	ElectricityUsage float64    `firestore:"electricityUsage"   json:"electricityUsage"`
-	ElectricityRate  float64    `firestore:"electricityRate"    json:"electricityRate"`
-	ElectricityCost  float64    `firestore:"electricityCost"    json:"electricityCost"`
-	Rent             float64    `firestore:"rent"               json:"rent"`
-	TotalAmount      float64    `firestore:"totalAmount"        json:"totalAmount"`
-	ImageURL         string     `firestore:"imageUrl"           json:"imageUrl,omitempty"`
+	ID               string    `firestore:"-"                 json:"id"`
+	Period           string    `firestore:"period"             json:"period"`
+	PeriodStart      time.Time `firestore:"periodStart"        json:"periodStart"`
+	MeterReading     float64   `firestore:"meterReading"       json:"meterReading"`
+	PreviousReading  float64   `firestore:"previousReading"    json:"previousReading"`
+	ElectricityUsage float64   `firestore:"electricityUsage"   json:"electricityUsage"`
+	ElectricityRate  float64   `firestore:"electricityRate"    json:"electricityRate"`
+	ElectricityCost  float64   `firestore:"electricityCost"    json:"electricityCost"`
+	Rent             float64   `firestore:"rent"               json:"rent"`
+	TotalAmount      float64   `firestore:"totalAmount"        json:"totalAmount"`
+	ImageURL         string    `firestore:"imageUrl"           json:"imageUrl,omitempty"`
 	// ImageViewURL is populated by the handler on read (short-lived signed GET URL).
 	// It is never persisted to Firestore.
-	ImageViewURL     string     `firestore:"-"                  json:"imageViewUrl,omitempty"`
-	PaidAt           *time.Time `firestore:"paidAt,omitempty"  json:"paidAt,omitempty"`
-	OCR              *OCRResult `firestore:"ocr,omitempty"      json:"ocr,omitempty"`
-	CreatedAt        time.Time  `firestore:"createdAt"          json:"createdAt"`
-	UpdatedAt        time.Time  `firestore:"updatedAt"          json:"updatedAt"`
+	ImageViewURL string     `firestore:"-"                  json:"imageViewUrl,omitempty"`
+	PaidAt       *time.Time `firestore:"paidAt,omitempty"  json:"paidAt,omitempty"`
+	OCR          *OCRResult `firestore:"ocr,omitempty"      json:"ocr,omitempty"`
+	CreatedAt    time.Time  `firestore:"createdAt"          json:"createdAt"`
+	UpdatedAt    time.Time  `firestore:"updatedAt"          json:"updatedAt"`
 }
 
 // ------------------ API DTOs ------------------

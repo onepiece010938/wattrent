@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/getsentry/sentry-go"
+	sentrygin "github.com/getsentry/sentry-go/gin"
 	"github.com/gin-gonic/gin"
 
 	"wattrent/internal/clients"
@@ -39,6 +41,28 @@ func main() {
 	if err != nil {
 		slog.Error("config load failed", "err", err)
 		os.Exit(1)
+	}
+
+	// Sentry must be initialised before anything else so that subsequent
+	// errors and panics can be captured. When SENTRY_DSN is empty Sentry is
+	// disabled and all sentry.* calls become no-ops, so we can call them
+	// unconditionally elsewhere.
+	if cfg.SentryDSN != "" {
+		if err := sentry.Init(sentry.ClientOptions{
+			Dsn:              cfg.SentryDSN,
+			Environment:      cfg.Env,
+			Release:          "wattrent-api@" + version,
+			TracesSampleRate: 0.0, // tracing disabled for now; enable later when we want spans
+			SendDefaultPII:   false,
+			AttachStacktrace: true,
+		}); err != nil {
+			slog.Warn("sentry init failed; continuing without it", "err", err)
+		} else {
+			slog.Info("sentry initialised", "env", cfg.Env, "release", version)
+			defer sentry.Flush(2 * time.Second)
+		}
+	} else {
+		slog.Info("sentry disabled (SENTRY_DSN not set)")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -104,6 +128,12 @@ func buildRouter(
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+	// sentrygin is registered AFTER Recovery so that its deferred recover()
+	// runs first on the way back up the middleware stack: it captures the
+	// panic, re-panics, then gin.Recovery() returns the 500 to the client.
+	if cfg.SentryDSN != "" {
+		r.Use(sentrygin.New(sentrygin.Options{Repanic: true, WaitForDelivery: false}))
+	}
 	r.Use(middleware.CORS(cfg))
 	r.Use(middleware.ErrorHandler())
 

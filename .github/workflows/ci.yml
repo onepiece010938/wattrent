@@ -82,3 +82,6 @@ jobs:
 
       - name: TypeScript check
         run: npx tsc --noEmit
+
+      - name: Test
+        run: npm run test:ci

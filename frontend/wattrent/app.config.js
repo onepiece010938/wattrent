@@ -46,7 +46,10 @@ export default {
           resizeMode: "contain",
           backgroundColor: "#ffffff"
         }
-      ]
+      ],
+      // Sentry React Native config plugin. Source maps + native crash reporting
+      // require this plugin in the native build (managed workflow does the rest).
+      "@sentry/react-native/expo"
     ],
     ios: {
       supportsTablet: true,
@@ -79,6 +82,15 @@ export default {
       //   $env:EXPO_PUBLIC_API_URL='https://wattrent-api-xxxx.a.run.app/api/v1'
       // If unset, lib/apiUrl.ts auto-selects the dev/staging fallback.
       apiUrl: process.env.EXPO_PUBLIC_API_URL || null,
+      // Sentry DSN — only set in production / staging builds (via EAS secret or shell env).
+      // When unset, lib/telemetry.ts falls back to a console-only adapter.
+      sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || null,
+      // Optional override of process.env.NODE_ENV-style env name used by Sentry tagging.
+      env: process.env.EXPO_PUBLIC_ENV || null,
+      // Production-build dev-mode opt-in. Set to "true" via EAS env when you need to
+      // toggle skipOcr / forceMockHistory / apiUrlOverride against a deployed build.
+      // In normal user-facing builds, leave this unset.
+      devModeEnabled: process.env.EXPO_PUBLIC_DEV_MODE_ENABLED || null,
       eas: {
         projectId: "dc9a5284-10b5-47da-bc1c-053c36d08564"
       }

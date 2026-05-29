@@ -1,7 +1,9 @@
 // Centralised API base URL resolution so it does not get scattered across services.
 //
 // Resolution order:
-//  1. Dev-mode runtime override (Settings -> Dev mode -> Backend URL)
+//  1. Dev-mode runtime override (Settings -> Dev mode -> Backend URL).
+//     Only effective when isDevModeAvailable() is true; otherwise getDevMode()
+//     returns DEFAULTS with an empty apiUrlOverride and this branch is skipped.
 //  2. process.env.EXPO_PUBLIC_API_URL (build-time env)
 //  3. Constants.expoConfig.extra.apiUrl (runtime config from app.config.js)
 //  4. __DEV__ + web -> http://localhost:8080/api/v1
@@ -11,7 +13,7 @@
 //  6. fallback -> staging Cloud Run
 //
 // To switch backends: `$env:EXPO_PUBLIC_API_URL='https://...'` before running the frontend,
-// or use the in-app dev-mode override (settings tab in __DEV__ builds).
+// or use the in-app dev-mode override (settings tab when dev-mode is available).
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { getDevMode } from '@/lib/devMode';
@@ -19,10 +21,8 @@ import { getDevMode } from '@/lib/devMode';
 const STAGING_URL = 'https://wattrent-api-6aiyzfe65q-de.a.run.app/api/v1';
 
 export function resolveApiUrl(): string {
-  if (__DEV__) {
-    const override = getDevMode().apiUrlOverride;
-    if (override) return stripTrailingSlash(override);
-  }
+  const override = getDevMode().apiUrlOverride;
+  if (override) return stripTrailingSlash(override);
 
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
   if (typeof fromEnv === 'string' && fromEnv.length > 0) {

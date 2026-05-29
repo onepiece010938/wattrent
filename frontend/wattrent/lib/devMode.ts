@@ -1,11 +1,19 @@
 // Dev Mode singleton — controls test/debug toggles persisted in AsyncStorage.
 //
-// Toggles surface in Settings (only in __DEV__ builds). They let you exercise
-// the UI without hitting real backend / Gemini, and let you swap API URL on
-// the fly without re-building.
+// Toggles surface in Settings (when isDevModeAvailable() is true). They let
+// you exercise the UI without hitting real backend / Gemini, and let you swap
+// the API URL on the fly without re-building.
 //
-// IMPORTANT: never trust these in production. The whole module guards on
-// __DEV__ and toggles default to OFF.
+// Availability:
+//   - __DEV__ builds: always available (running from Metro / dev client).
+//   - Production binaries: available only when the build was made with the
+//     env var EXPO_PUBLIC_DEV_MODE_ENABLED=true. This lets us flip a
+//     staging-flavored production build into a test mode without recompiling,
+//     while keeping it permanently OFF for user-facing release builds.
+//
+// IMPORTANT: never trust these in production for security-sensitive paths.
+// The toggles only affect UI/state behavior (skipping OCR, swapping API URL,
+// surfacing mock history). They never bypass auth.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -30,12 +38,18 @@ let cached: DevModeState = { ...DEFAULTS };
 let loaded = false;
 const listeners = new Set<(s: DevModeState) => void>();
 
+// Resolved once at module load time. process.env values baked into Expo bundles
+// via EXPO_PUBLIC_* are static, so caching is safe and avoids per-call string
+// comparisons.
+const DEV_MODE_AVAILABLE: boolean =
+  __DEV__ || process.env.EXPO_PUBLIC_DEV_MODE_ENABLED === 'true';
+
 export function isDevModeAvailable(): boolean {
-  return __DEV__;
+  return DEV_MODE_AVAILABLE;
 }
 
 export async function loadDevMode(): Promise<DevModeState> {
-  if (!__DEV__) return DEFAULTS;
+  if (!DEV_MODE_AVAILABLE) return DEFAULTS;
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -49,7 +63,7 @@ export async function loadDevMode(): Promise<DevModeState> {
 }
 
 export function getDevMode(): DevModeState {
-  if (!__DEV__) return DEFAULTS;
+  if (!DEV_MODE_AVAILABLE) return DEFAULTS;
   return cached;
 }
 
@@ -58,7 +72,7 @@ export function isLoaded(): boolean {
 }
 
 export async function setDevMode(partial: Partial<DevModeState>): Promise<void> {
-  if (!__DEV__) return;
+  if (!DEV_MODE_AVAILABLE) return;
   cached = { ...cached, ...partial };
   try {
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(cached));
@@ -71,13 +85,24 @@ export async function setDevMode(partial: Partial<DevModeState>): Promise<void> 
 }
 
 export function subscribeDevMode(fn: (s: DevModeState) => void): () => void {
-  if (!__DEV__) return () => undefined;
+  if (!DEV_MODE_AVAILABLE) return () => undefined;
   listeners.add(fn);
   return () => listeners.delete(fn) as unknown as void;
 }
 
 /** True if any dev toggle is active and the user should see the banner. */
 export function isAnyDevToggleActive(s: DevModeState = cached): boolean {
-  if (!__DEV__) return false;
+  if (!DEV_MODE_AVAILABLE) return false;
   return s.skipOcr || s.forceMockHistory || s.apiUrlOverride.length > 0;
+}
+
+/**
+ * Reset cached state. Used by tests; never call from app code.
+ *
+ * @internal
+ */
+export function __resetDevModeForTests(): void {
+  cached = { ...DEFAULTS };
+  loaded = false;
+  listeners.clear();
 }
