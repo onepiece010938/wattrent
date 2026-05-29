@@ -30,6 +30,7 @@ export interface Bill {
   rent: number;
   totalAmount: number;
   imageUrl?: string;
+  imageViewUrl?: string; // short-lived signed GET URL, populated only on detail fetch
   paidAt?: string;
   ocr?: BillOcrResult;
   createdAt: string;

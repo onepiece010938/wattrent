@@ -114,6 +114,39 @@ class ApiService {
     return response.data!;
   }
 
+  /**
+   * PUT the binary body straight to a signed upload URL (returned by signUpload()).
+   * Bypasses the API request envelope; the signed URL is hosted by GCS itself.
+   */
+  async putBinaryToSignedUrl(
+    uploadUrl: string,
+    body: ArrayBuffer | Blob | Uint8Array,
+    contentType: string,
+    timeoutMs: number = 30_000,
+  ): Promise<void> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        body: body as any,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        throw new Error(`upload failed: HTTP ${res.status}`);
+      }
+    } catch (err) {
+      if ((err as Error)?.name === 'AbortError') {
+        throw new Error(i18n.t('errors.backend.timeout', { seconds: Math.round(timeoutMs / 1000) }));
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   // Bills
   async createBill(payload: CreateBillPayload): Promise<Bill> {
     const response = await this.request<Bill>('/bills', {

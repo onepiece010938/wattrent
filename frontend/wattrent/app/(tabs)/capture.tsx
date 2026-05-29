@@ -21,7 +21,7 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { currentPeriod } from '~/lib/period';
 import { getDevMode } from '@/lib/devMode';
-import { compressForOcr } from '@/lib/imageCompression';
+import { compressForOcr, base64ToBytes } from '@/lib/imageCompression';
 import { useToast } from '@/components/Toast';
 
 export default function CaptureScreen() {
@@ -44,6 +44,9 @@ export default function CaptureScreen() {
   const [processing, setProcessing] = useState(false);
   const [ocrError, setOcrError] = useState<string | null>(null);
   const [lowConfidence, setLowConfidence] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [savingStage, setSavingStage] = useState<'upload' | 'create' | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(false);
 
@@ -197,30 +200,65 @@ export default function CaptureScreen() {
 
     const currentReading = parseFloat(meterReading);
     const prevReading = parseFloat(previousReading);
-    const rate = parseFloat(electricityRate);
-    const rentAmount = parseFloat(rent);
 
     if (currentReading < prevReading) {
       Alert.alert(t('common.error'), t('capture.currentReadingCannotBeLower'));
       return;
     }
 
-    try {
-      const period = currentPeriod();
+    // Open the confirm step instead of saving immediately
+    setShowConfirm(true);
+  };
 
+  // Generate a stable client-side ID used as the GCS object name (orphan photos
+  // are cleaned by bucket lifecycle). Bill.ID is a separate Firestore-generated ID.
+  const newUploadId = (): string =>
+    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  const confirmAndSave = async () => {
+    const currentReading = parseFloat(meterReading);
+    const rate = parseFloat(electricityRate);
+    const rentAmount = parseFloat(rent);
+    const period = currentPeriod();
+
+    setSaving(true);
+    try {
+      let imageUrl: string | undefined;
+
+      // Upload the compressed image first (if present) so the bill record can reference it.
+      if (capturedBase64) {
+        try {
+          setSavingStage('upload');
+          const uploadId = newUploadId();
+          const signed = await apiService.signUpload(uploadId, 'image/jpeg');
+          const bytes = base64ToBytes(capturedBase64);
+          await apiService.putBinaryToSignedUrl(signed.uploadUrl, bytes, 'image/jpeg');
+          imageUrl = signed.gcsPath;
+        } catch (uploadErr) {
+          // Photo upload is best-effort; the bill still saves without it.
+          console.warn('photo upload failed; saving bill without imageUrl', uploadErr);
+        }
+      }
+
+      setSavingStage('create');
       const bill = await apiService.createBill({
         meterReading: currentReading,
         electricityRate: rate,
         rent: rentAmount,
         period,
+        imageUrl,
       });
       void bill;
 
+      setShowConfirm(false);
       showToast({ kind: 'success', message: t('capture.billCalculatedAndSaved') });
       router.push('/(tabs)/history');
     } catch (error) {
       console.error(t('capture.createBillFailedConsole'), error);
       Alert.alert(t('common.error'), t('capture.createBillFailed'));
+    } finally {
+      setSaving(false);
+      setSavingStage(null);
     }
   };
 
@@ -270,6 +308,15 @@ export default function CaptureScreen() {
   }
 
   if (capturedImage) {
+    const currentReadingNum = parseFloat(meterReading) || 0;
+    const prevReadingNum = parseFloat(previousReading) || 0;
+    const rateNum = parseFloat(electricityRate) || 0;
+    const rentNum = parseFloat(rent) || 0;
+    const usageNum = Math.max(0, currentReadingNum - prevReadingNum);
+    const electricityCostNum = usageNum * rateNum;
+    const totalNum = electricityCostNum + rentNum;
+    const fmt = (n: number) => (Number.isInteger(n) ? n.toString() : n.toFixed(2));
+
     return (
       <SafeAreaView className="flex-1 bg-background" edges={['top']}>
         <ScrollView 
@@ -406,6 +453,90 @@ export default function CaptureScreen() {
             </View>
           </View>
         </ScrollView>
+
+        {/* Step 3: Confirm overlay */}
+        {showConfirm && (
+          <View
+            className="absolute inset-0 justify-end bg-black/60"
+            style={{ zIndex: 50 }}
+          >
+            <View className="bg-card rounded-t-3xl p-6 border-t border-border">
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-xl font-bold text-card-foreground">
+                  {t('capturePreview.title')}
+                </Text>
+                <TouchableOpacity onPress={() => !saving && setShowConfirm(false)} disabled={saving}>
+                  <Ionicons
+                    name="close"
+                    size={24}
+                    color={isDarkColorScheme ? '#D1D5DB' : '#374151'}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View className="space-y-2 mb-5">
+                <Text className="text-sm text-muted-foreground">
+                  {t('capturePreview.period', { period: currentPeriod() })}
+                </Text>
+                <Text className="text-sm text-card-foreground">
+                  {t('capturePreview.usage', {
+                    usage: fmt(usageNum),
+                    current: fmt(currentReadingNum),
+                    previous: fmt(prevReadingNum),
+                  })}
+                </Text>
+                <Text className="text-sm text-card-foreground">
+                  {t('capturePreview.electricityLine', {
+                    usage: fmt(usageNum),
+                    rate: fmt(rateNum),
+                    cost: fmt(electricityCostNum),
+                  })}
+                </Text>
+                <Text className="text-sm text-card-foreground">
+                  {t('capturePreview.rentLine', { rent: fmt(rentNum) })}
+                </Text>
+                <View className="border-t border-border pt-2 mt-1">
+                  <Text className="text-lg font-bold text-primary">
+                    {t('capturePreview.totalLine', { total: fmt(totalNum) })}
+                  </Text>
+                </View>
+              </View>
+
+              {saving && (
+                <View className="flex-row items-center mb-3">
+                  <ActivityIndicator size="small" color={isDarkColorScheme ? '#60A5FA' : '#2563EB'} />
+                  <Text className="ml-2 text-sm text-muted-foreground">
+                    {savingStage === 'upload'
+                      ? t('capturePreview.uploadingPhoto')
+                      : t('capturePreview.savingBill')}
+                  </Text>
+                </View>
+              )}
+
+              <View className="flex-row gap-3">
+                <TouchableOpacity
+                  className="flex-1 border-2 border-primary rounded-lg py-3 items-center"
+                  onPress={() => setShowConfirm(false)}
+                  disabled={saving}
+                >
+                  <Text className="text-primary font-semibold">{t('capturePreview.back')}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className={`flex-1 rounded-lg py-3 items-center ${
+                    saving ? 'bg-primary/60' : 'bg-primary'
+                  }`}
+                  onPress={confirmAndSave}
+                  disabled={saving}
+                >
+                  <Text className="text-primary-foreground font-semibold">
+                    {t('capturePreview.confirm')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   }

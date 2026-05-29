@@ -4,31 +4,27 @@ import {
   Text,
   FlatList,
   TouchableOpacity,
-  Alert,
-  Share,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { Bill } from '@/types';
 import apiService from '@/services/api';
-import PaymentStatusDropdown from '@/components/PaymentStatusDropdown';
-import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatPeriod } from '~/lib/period';
 import { getDevMode } from '@/lib/devMode';
-import { useToast } from '@/components/Toast';
 
 export default function HistoryScreen() {
+  const router = useRouter();
   const [bills, setBills] = useState<Bill[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [usingMock, setUsingMock] = useState(false);
   const { isDarkColorScheme } = useColorScheme();
   const { t, currentLanguage } = useTranslation();
-  const { showToast } = useToast();
   useFocusEffect(
     useCallback(() => {
       loadBills();
@@ -91,198 +87,54 @@ export default function HistoryScreen() {
     }
   };
 
-  const shareBillMessage = async (bill: Bill) => {
-    try {
-      if (!bill.message) {
-        const message = generateBillMessage(bill);
-        bill.message = message;
-      }
-      
-      const result = await Share.share({
-        message: bill.message,
-      });
-
-      if (result.action === Share.sharedAction) {
-        // Bill marked as shared client-side only; server-side share log is not implemented yet.
-      }
-    } catch {
-      Alert.alert(t('common.error'), t('history.cannotShareMessage'));
-    }
-  };
-
-  const generateBillMessage = (bill: Bill): string => {
-    return t('history.billMessage', { 
-      rent: bill.rent, 
-      electricityCost: bill.electricityCost, 
-      totalAmount: bill.totalAmount 
-    });
-  };
-
-  const deleteBill = (billId: string) => {
-    Alert.alert(
-      t('history.confirmDelete'),
-      t('history.confirmDeleteMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await apiService.deleteBill(billId);
-              
-              const updatedBills = bills.filter(bill => bill.id !== billId);
-              setBills(updatedBills);
-              
-              showToast({ kind: 'success', message: t('history.billDeleted') });
-            } catch (error) {
-              console.error(t('history.deleteBillFailed'), error);
-              Alert.alert(t('common.error'), t('history.cannotDeleteBill'));
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const togglePaymentStatus = async (bill: Bill) => {
-    try {
-      const isMarkingAsPaid = !bill.paidAt;
-
-      const updatedBill = await apiService.setPaymentStatus(bill.id, isMarkingAsPaid);
-
-      const updatedBills = bills.map(b =>
-        b.id === bill.id ? updatedBill : b
-      );
-      setBills(updatedBills);
-
-      // If marking as paid, update the previous meter reading
-      if (isMarkingAsPaid) {
-        try {
-          await settingsService.updatePreviousMeterReading(bill.meterReading);
-        } catch (error) {
-          console.error(t('history.updatePreviousMeterReadingFailed'), error);
-        }
-      }
-
-      Alert.alert(t('common.success'), bill.paidAt ? t('history.markAsUnpaid') : t('history.markAsPaid'));    } catch (error) {
-      console.error(t('history.updatePaymentStatusFailed'), error);
-      Alert.alert(t('common.error'), t('history.cannotUpdatePaymentStatus'));
-    }
-  };
-
   const renderBillItem = ({ item }: { item: Bill }) => (
-    <View className="bg-card rounded-2xl p-5 mb-4 shadow-sm border border-border">
-      <View className="flex-row items-center justify-between mb-4">
-        <Text className="text-lg font-semibold text-card-foreground">
-          {formatPeriod(item.period, currentLanguage)}
-        </Text>
-        {item.paidAt ? (
-          <PaymentStatusDropdown
-            bill={item}
-            onUpdatePaymentStatus={togglePaymentStatus}
-            onDeleteBill={deleteBill}
-          />
-        ) : (
-          <View className="flex-row items-center bg-amber-100 dark:bg-amber-900 px-3 py-1 rounded-full">
-            <Ionicons name="time" size={16} color="#F59E0B" />
-            <Text className="text-amber-700 dark:text-amber-300 text-sm ml-1">
-              {t('history.pendingPayment')}
-            </Text>
-          </View>
-        )}
-      </View>
-
-      <View className="space-y-2 mb-4">
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">{t('history.meterReading')}：</Text>
-          <Text className="text-sm text-card-foreground font-medium">
-            {item.meterReading} {t('history.unit')}
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => router.push({ pathname: '/bill/[id]', params: { id: item.id } })}
+      className="bg-card rounded-2xl p-5 mb-4 shadow-sm border border-border"
+    >
+      <View className="flex-row items-center justify-between">
+        <View className="flex-1 pr-3">
+          <Text className="text-sm text-muted-foreground">
+            {formatPeriod(item.period, currentLanguage)}
           </Text>
-        </View>
-        
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">{t('history.electricityRate')}：</Text>
-          <Text className="text-sm text-card-foreground font-medium">
-            {t('history.currency')}{item.electricityRate}/{t('history.unit')}
+          <Text className="text-2xl font-bold text-primary mt-1">
+            {t('history.currency')}{item.totalAmount}
           </Text>
-        </View>
-        
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">{t('history.electricityUsage')}：</Text>
-          <Text className="text-sm text-card-foreground font-medium">
-            {item.electricityUsage} {t('history.unit')}
-          </Text>
-        </View>
-        
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">{t('history.electricityCalculation')}：</Text>
-          <Text className="text-sm text-card-foreground font-medium">
-            {item.electricityUsage} × {t('history.currency')}{item.electricityRate} = {t('history.currency')}{item.electricityCost}
-          </Text>
-        </View>
-        
-        <View className="flex-row justify-between">
-          <Text className="text-sm text-muted-foreground">{t('history.rent')}：</Text>
-          <Text className="text-sm text-card-foreground font-medium">
-            {t('history.currency')}{item.rent}
-          </Text>
-        </View>
-        
-        <View className="border-t border-border pt-2 mt-2">
-          <View className="flex-row justify-between">
-            <Text className="text-base font-semibold text-card-foreground">
-              {t('history.totalAmount')}：
-            </Text>
-            <Text className="text-lg font-bold text-primary">
-              {t('history.currency')}{item.totalAmount}
-            </Text>
+          <View className="mt-2 flex-row items-center">
+            {item.paidAt ? (
+              <View className="flex-row items-center bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-0.5 rounded-full">
+                <Ionicons name="checkmark-circle" size={12} color="#10B981" />
+                <Text className="text-emerald-700 dark:text-emerald-300 text-xs ml-1">
+                  {t('history.paid')}
+                </Text>
+              </View>
+            ) : (
+              <View className="flex-row items-center bg-amber-100 dark:bg-amber-900/40 px-2.5 py-0.5 rounded-full">
+                <Ionicons name="time" size={12} color="#F59E0B" />
+                <Text className="text-amber-700 dark:text-amber-300 text-xs ml-1">
+                  {t('history.pendingPayment')}
+                </Text>
+              </View>
+            )}
+            {item.imageUrl && (
+              <View className="ml-2 flex-row items-center">
+                <Ionicons
+                  name="image-outline"
+                  size={12}
+                  color={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
+                />
+              </View>
+            )}
           </View>
         </View>
+        <Ionicons
+          name="chevron-forward"
+          size={22}
+          color={isDarkColorScheme ? '#9CA3AF' : '#9CA3AF'}
+        />
       </View>
-
-      <View className="flex-row gap-2">
-        <TouchableOpacity
-          className="flex-1 flex-row items-center justify-center border border-primary rounded-lg py-2"
-          onPress={() => shareBillMessage(item)}
-        >
-          <Ionicons 
-            name="share-outline" 
-            size={18} 
-            color={isDarkColorScheme ? '#60A5FA' : '#2563EB'} 
-          />
-          <Text className="text-primary text-sm font-medium ml-1">
-            {t('common.share')}
-          </Text>
-        </TouchableOpacity>
-
-        {!item.paidAt && (
-          <>
-            <TouchableOpacity
-              className="flex-1 flex-row items-center justify-center bg-primary dark:bg-primary rounded-lg py-2"
-              onPress={() => togglePaymentStatus(item)}
-            >
-              <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-              <Text className="text-primary-foreground text-sm font-medium ml-1">
-                {t('history.markAsPaid')}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              className="flex-row items-center justify-center border border-destructive rounded-lg px-3 py-2"
-              onPress={() => deleteBill(item.id)}
-            >
-              <Ionicons 
-                name="trash-outline" 
-                size={18} 
-                color={isDarkColorScheme ? '#F87171' : '#DC2626'} 
-              />
-              <Text className="text-destructive text-sm font-medium ml-1">{t('common.delete')}</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (

@@ -608,39 +608,6 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          {/* Notification settings */}
-          <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
-            <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              {t('settings.notifications')}
-            </Text>
-            
-            <View className="space-y-4">
-              <View className="flex-row items-center justify-between py-2">
-                <Text className="text-base text-gray-900 dark:text-gray-100">
-                  {t('settings.paymentReminder')}
-                </Text>
-                <Switch
-                  value={notificationsEnabled}
-                  onValueChange={setNotificationsEnabled}
-                  trackColor={{ false: '#D1D5DB', true: '#0EA5E9' }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              <View className="flex-row items-center justify-between py-2">
-                <Text className="text-base text-gray-900 dark:text-gray-100">
-                  {t('settings.autoBackup')}
-                </Text>
-                <Switch
-                  value={autoBackup}
-                  onValueChange={setAutoBackup}
-                  trackColor={{ false: '#D1D5DB', true: '#0EA5E9' }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-            </View>
-          </View>
-
           {/* Data management */}
           <View className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm">
             <Text className="text-lg font-semibold text-gray-900 dark:text-white mb-4">

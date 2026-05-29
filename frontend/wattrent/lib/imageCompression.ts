@@ -51,3 +51,17 @@ export async function compressForOcr(uri: string): Promise<CompressedImage> {
     approxBytes,
   };
 }
+
+/**
+ * Convert a base64 string into a Uint8Array suitable for fetch PUT bodies.
+ * Avoids pulling in a full Buffer polyfill.
+ */
+export function base64ToBytes(base64: string): Uint8Array {
+  // atob exists in React Native (Hermes) and on web
+  const binary = globalThis.atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}

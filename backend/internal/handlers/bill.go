@@ -19,11 +19,26 @@ import (
 )
 
 type BillHandler struct {
-	bills *services.BillService
+	bills   *services.BillService
+	storage *services.StorageService
 }
 
-func NewBillHandler(bills *services.BillService) *BillHandler {
-	return &BillHandler{bills: bills}
+func NewBillHandler(bills *services.BillService, storage *services.StorageService) *BillHandler {
+	return &BillHandler{bills: bills, storage: storage}
+}
+
+// resolveViewURL tries to attach a short-lived signed GET URL when the bill
+// references a gs:// object. Failure is non-fatal: we log and keep going so
+// the detail page still renders.
+func (h *BillHandler) resolveViewURL(c *gin.Context, bill *models.Bill) {
+	if bill == nil || bill.ImageURL == "" || h.storage == nil {
+		return
+	}
+	url, _, err := h.storage.SignedDownloadURL(c.Request.Context(), bill.ImageURL)
+	if err != nil {
+		return
+	}
+	bill.ImageViewURL = url
 }
 
 // POST /api/v1/bills
@@ -74,6 +89,7 @@ func (h *BillHandler) Get(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
+	h.resolveViewURL(c, bill)
 	c.JSON(http.StatusOK, models.ApiResponse{Success: true, Data: bill})
 }
 

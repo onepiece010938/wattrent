@@ -113,7 +113,7 @@ func buildRouter(
 	})
 
 	// Handlers
-	billHandler := handlers.NewBillHandler(billSvc)
+	billHandler := handlers.NewBillHandler(billSvc, storageSvc)
 	settingsHandler := handlers.NewSettingsHandler(settingsSvc)
 	ocrHandler := handlers.NewOCRHandler(ocrSvc)
 	uploadHandler := handlers.NewUploadHandler(storageSvc)

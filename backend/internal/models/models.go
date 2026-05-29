@@ -80,6 +80,9 @@ type Bill struct {
 	Rent             float64    `firestore:"rent"               json:"rent"`
 	TotalAmount      float64    `firestore:"totalAmount"        json:"totalAmount"`
 	ImageURL         string     `firestore:"imageUrl"           json:"imageUrl,omitempty"`
+	// ImageViewURL is populated by the handler on read (short-lived signed GET URL).
+	// It is never persisted to Firestore.
+	ImageViewURL     string     `firestore:"-"                  json:"imageViewUrl,omitempty"`
 	PaidAt           *time.Time `firestore:"paidAt,omitempty"  json:"paidAt,omitempty"`
 	OCR              *OCRResult `firestore:"ocr,omitempty"      json:"ocr,omitempty"`
 	CreatedAt        time.Time  `firestore:"createdAt"          json:"createdAt"`
