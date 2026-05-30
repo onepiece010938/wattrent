@@ -5,7 +5,7 @@
 # without a real meter photo. To enable that toggle, open Settings →
 # Advanced → "Skip OCR (dev only)" before running this flow, OR set
 # EXPO_PUBLIC_DEV_MODE=1 at build time.
-appId: ${MAESTRO_APP_ID:-app.wattrent}
+appId: ${MAESTRO_APP_ID || 'app.wattrent'}
 ---
 - launchApp
 - assertVisible:

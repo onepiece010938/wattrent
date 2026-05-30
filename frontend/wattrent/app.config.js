@@ -19,7 +19,7 @@ export default {
       url: "https://u.expo.dev/dc9a5284-10b5-47da-bc1c-053c36d08564"
     },
     splash: {
-      image: "./assets/splash.png",
+      image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
       backgroundColor: "#ffffff"
     },
@@ -41,7 +41,7 @@ export default {
       [
         "expo-splash-screen",
         {
-          image: "./assets/splash.png",
+          image: "./assets/images/splash-icon.png",
           imageWidth: 200,
           resizeMode: "contain",
           backgroundColor: "#ffffff"

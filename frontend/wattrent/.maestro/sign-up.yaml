@@ -3,9 +3,9 @@
 # WARNING: this creates a real Firebase user on whatever project the build
 # points at. Use a staging project, and delete the user via the Firebase
 # console afterwards.
-appId: ${MAESTRO_APP_ID:-app.wattrent}
+appId: ${MAESTRO_APP_ID || 'app.wattrent'}
 env:
-  E2E_NEW_EMAIL: e2e-${MAESTRO_FLOW_RUN_ID:-local}@example.com
+  E2E_NEW_EMAIL: e2e-${MAESTRO_FLOW_RUN_ID || 'local'}@example.com
   E2E_NEW_PASSWORD: SuperStr0ng!Pass
 ---
 - launchApp:

@@ -37,23 +37,38 @@ export interface FirebaseConfig {
   measurementId?: string;
 }
 
+// A value counts as "present" only when it is a non-empty string. This guards
+// against the common bypass-mode pitfall where Constants.expoConfig.extra ends
+// up with literal `null` values (from app.config.js falling back to `|| null`
+// when env vars are unset). The `??` operator only treats null/undefined as
+// missing, so we need a stricter truthiness check before handing the object
+// to Firebase. Without this guard, initializeApp({ apiKey: null }) explodes
+// with "apiKey.includes is not a function" on first render.
+function nonEmpty(v: unknown): string | undefined {
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
 function loadConfig(): FirebaseConfig | null {
   const extra = (Constants.expoConfig?.extra ?? {}) as { firebase?: Partial<FirebaseConfig> };
-  const cfg: Partial<FirebaseConfig> = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? extra.firebase?.apiKey,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ?? extra.firebase?.authDomain,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? extra.firebase?.projectId,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID ?? extra.firebase?.appId,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ?? extra.firebase?.storageBucket,
-    messagingSenderId:
-      process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? extra.firebase?.messagingSenderId,
-    measurementId:
-      process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID ?? extra.firebase?.measurementId,
-  };
-  if (!cfg.apiKey || !cfg.projectId || !cfg.appId) {
+  const apiKey = nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_API_KEY) ?? nonEmpty(extra.firebase?.apiKey);
+  const authDomain = nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN) ?? nonEmpty(extra.firebase?.authDomain);
+  const projectId = nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID) ?? nonEmpty(extra.firebase?.projectId);
+  const appId = nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_APP_ID) ?? nonEmpty(extra.firebase?.appId);
+  if (!apiKey || !projectId || !appId) {
     return null;
   }
-  return cfg as FirebaseConfig;
+  return {
+    apiKey,
+    authDomain: authDomain ?? '',
+    projectId,
+    appId,
+    storageBucket: nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET) ?? nonEmpty(extra.firebase?.storageBucket),
+    messagingSenderId:
+      nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) ??
+      nonEmpty(extra.firebase?.messagingSenderId),
+    measurementId:
+      nonEmpty(process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID) ?? nonEmpty(extra.firebase?.measurementId),
+  };
 }
 
 let cached: FirebaseApp | null = null;

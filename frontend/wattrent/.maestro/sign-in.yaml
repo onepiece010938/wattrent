@@ -9,7 +9,7 @@
 #   MAESTRO_APP_ID  -- defaults to app.wattrent
 #   E2E_EMAIL       -- defaults to the placeholder shown in the email field
 #   E2E_PASSWORD    -- defaults to a placeholder; supply via -e flag
-appId: ${MAESTRO_APP_ID:-app.wattrent}
+appId: ${MAESTRO_APP_ID || 'app.wattrent'}
 env:
   E2E_EMAIL: you@example.com
   E2E_PASSWORD: changeMe!

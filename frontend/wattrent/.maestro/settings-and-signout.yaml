@@ -3,7 +3,7 @@
 # Pre-conditions: app is signed in via real Firebase Auth (NOT bypass mode).
 # In bypass mode signOut is a no-op and the assertion at the bottom will
 # fail — that's expected.
-appId: ${MAESTRO_APP_ID:-app.wattrent}
+appId: ${MAESTRO_APP_ID || 'app.wattrent'}
 ---
 - launchApp
 - assertVisible:
