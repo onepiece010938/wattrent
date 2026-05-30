@@ -111,40 +111,73 @@ frontend-typecheck:
 
 # ────────────────────────── E2E (Maestro) ──────────────────────────
 #
-# Maestro is local-first: install the CLI once, boot a simulator / emulator
-# that has the WattRent app installed, then run a YAML flow against it.
+# Maestro runs natively on Windows + macOS + Linux (it's a JVM app).
+# Install the CLI once, boot a simulator / emulator that has WattRent
+# installed, then run a YAML flow against it.
 #
-# Windows note: Maestro CLI doesn't run natively on Windows. Install it
-# inside WSL2 (Ubuntu), and run an Android emulator on Windows (or inside
-# WSL with KVM). The `e2e-*` recipes below shell out to `wsl maestro ...`
-# automatically when running on Windows. See frontend/wattrent/.maestro/README.md.
+# On Windows the install drops to "$env:USERPROFILE\.maestro\bin"; the
+# Android SDK's adb + emulator should be on PATH too (Android Studio
+# installs them at "$env:LOCALAPPDATA\Android\Sdk\platform-tools" and
+# "...\emulator"). See frontend/wattrent/.maestro/README.md.
 
-# Install the Maestro CLI. Uses WSL on Windows, native install otherwise.
+# Install the Maestro CLI. Native install on every OS — JDK 11+ required.
+# Manual fallback (Windows): see .maestro/README.md "Manual install" section.
 e2e-install:
-  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Write-Host '==> Installing Maestro inside WSL (Ubuntu)' ; wsl bash -c 'curl -Ls https://get.maestro.mobile.dev | bash' } else { curl -Ls https://get.maestro.mobile.dev | bash }
-  Write-Host ''
-  Write-Host 'Verify with: just e2e-doctor'
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { \
+    Write-Host '==> Installing Maestro for Windows (downloads ~300 MB)' ; \
+    $ProgressPreference = 'SilentlyContinue' ; \
+    $url = (Invoke-RestMethod 'https://api.github.com/repos/mobile-dev-inc/maestro/releases/latest' -Headers @{ 'User-Agent' = 'wattrent-justfile' }).assets | Where-Object { $_.name -eq 'maestro.zip' } | Select-Object -ExpandProperty browser_download_url ; \
+    $tmp = "$env:TEMP\maestro-install.zip" ; \
+    Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing ; \
+    $staging = "$env:TEMP\maestro-install-stage" ; \
+    if (Test-Path $staging) { Remove-Item $staging -Recurse -Force } ; \
+    Expand-Archive -Path $tmp -DestinationPath $staging -Force ; \
+    $dst = "$env:USERPROFILE\.maestro" ; \
+    if (Test-Path $dst) { Remove-Item $dst -Recurse -Force } ; \
+    Move-Item (Join-Path $staging 'maestro') $dst ; \
+    $userPath = [Environment]::GetEnvironmentVariable('PATH','User') ; \
+    if (($userPath -split ';') -notcontains "$dst\bin") { [Environment]::SetEnvironmentVariable('PATH', "$userPath;$dst\bin", 'User') ; Write-Host "Added $dst\bin to user PATH (restart your shell to pick it up)" } ; \
+    Remove-Item $tmp,$staging -Recurse -Force -ErrorAction SilentlyContinue ; \
+    Write-Host '==> Done. Run `just e2e-doctor` to verify.' \
+  } else { \
+    curl -Ls https://get.maestro.mobile.dev | bash ; \
+    Write-Host 'Verify with: just e2e-doctor' \
+  }
 
 # Verify the Maestro install + show connected devices.
 e2e-doctor:
-  if ($IsWindows -or $env:OS -eq 'Windows_NT') { wsl bash -c 'maestro --version ; adb devices' } else { maestro --version ; adb devices }
+  maestro --version
+  adb devices
+  Write-Host ''
+  Write-Host 'If a device or emulator is listed above, you are ready: `just e2e-smoke`'
 
 # Run the full Maestro suite against whatever simulator / emulator is running.
 e2e:
-  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro test .maestro/ ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro test .maestro/ ; Pop-Location }
+  Push-Location {{FRONTEND_DIR}} ; maestro test .maestro/ ; Pop-Location
 
 # Run a single flow. Usage: just e2e-one .maestro/sign-in.yaml
 e2e-one FLOW:
-  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro test {{FLOW}} ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro test {{FLOW}} ; Pop-Location }
+  Push-Location {{FRONTEND_DIR}} ; maestro test {{FLOW}} ; Pop-Location
 
 # Quick smoke test — only the bypass-mode flow, which doesn't need real
 # Firebase Auth credentials. Fastest way to verify the local pipeline works.
 e2e-smoke:
-  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro test .maestro/bypass-mode-smoke.yaml ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro test .maestro/bypass-mode-smoke.yaml ; Pop-Location }
+  Push-Location {{FRONTEND_DIR}} ; maestro test .maestro/bypass-mode-smoke.yaml ; Pop-Location
 
 # Open the Maestro Studio (interactive flow recorder) against a running device.
 e2e-studio:
-  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro studio ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro studio ; Pop-Location }
+  Push-Location {{FRONTEND_DIR}} ; maestro studio ; Pop-Location
+
+# Boot the Android emulator (defaults to the first AVD). Background job —
+# leave the new window running and use a second terminal for `just e2e`.
+emulator AVD="":
+  if ('{{AVD}}' -eq '') { \
+    $avds = & "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -list-avds ; \
+    if (-not $avds) { Write-Error 'No AVDs found. Create one in Android Studio (Device Manager).' ; exit 1 } ; \
+    $name = ($avds -split "`n")[0].Trim() \
+  } else { $name = '{{AVD}}' } ; \
+  Write-Host "==> Booting $name (close the emulator window to stop)" ; \
+  Start-Process "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -ArgumentList "-avd",$name
 
 # ────────────────────────── Terraform ──────────────────────────
 
