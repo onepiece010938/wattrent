@@ -14,6 +14,7 @@ import { ToastProvider } from '@/components/Toast';
 import DevModeBanner from '@/components/DevModeBanner';
 import telemetry from '@/lib/telemetry';
 import { AuthProvider, useAuth } from '@/lib/auth';
+import { initAds } from '@/lib/ads';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -70,6 +71,9 @@ export default function RootLayout() {
       } finally {
         setI18nInitialized(true);
       }
+      // Fire-and-forget: AdMob init can take a second on cold start; we don't
+      // want to block splash screen on it. Failures are captured inside.
+      initAds();
     };
 
     initialize();

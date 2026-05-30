@@ -19,6 +19,7 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useToast } from '@/components/Toast';
 import { formatPeriod } from '~/lib/period';
+import AdBanner from '@/components/AdBanner';
 
 export default function BillDetailScreen() {
   const router = useRouter();
@@ -286,6 +287,7 @@ export default function BillDetailScreen() {
           </View>
         </View>
       </ScrollView>
+      <AdBanner />
     </SafeAreaView>
   );
 }

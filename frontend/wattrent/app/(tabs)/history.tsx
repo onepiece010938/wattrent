@@ -16,6 +16,7 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatPeriod } from '~/lib/period';
 import { getDevMode, isDevModeAvailable } from '@/lib/devMode';
+import AdBanner from '@/components/AdBanner';
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -207,6 +208,7 @@ export default function HistoryScreen() {
           }
         />
       </View>
+      <AdBanner />
     </SafeAreaView>
   );
 } 

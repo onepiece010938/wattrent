@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Text } from '~/components/nativewindui/Text';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
+import AdBanner from '@/components/AdBanner';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -120,6 +121,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+      <AdBanner />
     </SafeAreaView>
   );
 }

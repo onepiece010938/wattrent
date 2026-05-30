@@ -30,6 +30,7 @@ import { resolveApiUrl } from '@/lib/apiUrl';
 import apiService from '@/services/api';
 import telemetry from '@/lib/telemetry';
 import { useAuth } from '@/lib/auth';
+import AdBanner from '@/components/AdBanner';
 import type { Bill } from '@/types';
 
 // Build a CSV body from a list of bills. Quoting wraps every field so commas
@@ -968,6 +969,7 @@ export default function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+      <AdBanner />
     </SafeAreaView>
   );
 }

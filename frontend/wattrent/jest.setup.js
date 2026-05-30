@@ -42,6 +42,27 @@ jest.mock('@sentry/react-native', () => ({
   wrap: (c) => c,
 }));
 
+// react-native-google-mobile-ads — no-op so AdBanner / ads.ts tests don't
+// touch the native module. Components rendered in tests just return null
+// because Platform.OS defaults to 'ios' but the require() inside returns
+// these stubs; ads.ts guards on the absence of TestIds.
+jest.mock('react-native-google-mobile-ads', () => ({
+  __esModule: true,
+  default: () => ({
+    initialize: jest.fn(async () => undefined),
+    setRequestConfiguration: jest.fn(async () => undefined),
+  }),
+  BannerAd: () => null,
+  BannerAdSize: { ANCHORED_ADAPTIVE_BANNER: 'ANCHORED_ADAPTIVE_BANNER' },
+  TestIds: { BANNER: 'ca-app-pub-3940256099942544/6300978111' },
+  MaxAdContentRating: { G: 'G', PG: 'PG', T: 'T', MA: 'MA' },
+  AdsConsent: {
+    requestInfoUpdate: jest.fn(async () => ({ isConsentFormAvailable: false, status: 0 })),
+    showForm: jest.fn(async () => undefined),
+  },
+  AdsConsentStatus: { UNKNOWN: 0, REQUIRED: 1, NOT_REQUIRED: 2, OBTAINED: 3 },
+}));
+
 // Silence the noisy "Animated: useNativeDriver" warning during tests.
 jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({}), {
   virtual: true,
