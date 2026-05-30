@@ -109,6 +109,43 @@ frontend-lint:
 frontend-typecheck:
   Push-Location {{FRONTEND_DIR}}; npx tsc --noEmit; Pop-Location
 
+# ────────────────────────── E2E (Maestro) ──────────────────────────
+#
+# Maestro is local-first: install the CLI once, boot a simulator / emulator
+# that has the WattRent app installed, then run a YAML flow against it.
+#
+# Windows note: Maestro CLI doesn't run natively on Windows. Install it
+# inside WSL2 (Ubuntu), and run an Android emulator on Windows (or inside
+# WSL with KVM). The `e2e-*` recipes below shell out to `wsl maestro ...`
+# automatically when running on Windows. See frontend/wattrent/.maestro/README.md.
+
+# Install the Maestro CLI. Uses WSL on Windows, native install otherwise.
+e2e-install:
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Write-Host '==> Installing Maestro inside WSL (Ubuntu)' ; wsl bash -c 'curl -Ls https://get.maestro.mobile.dev | bash' } else { curl -Ls https://get.maestro.mobile.dev | bash }
+  Write-Host ''
+  Write-Host 'Verify with: just e2e-doctor'
+
+# Verify the Maestro install + show connected devices.
+e2e-doctor:
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { wsl bash -c 'maestro --version ; adb devices' } else { maestro --version ; adb devices }
+
+# Run the full Maestro suite against whatever simulator / emulator is running.
+e2e:
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro test .maestro/ ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro test .maestro/ ; Pop-Location }
+
+# Run a single flow. Usage: just e2e-one .maestro/sign-in.yaml
+e2e-one FLOW:
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro test {{FLOW}} ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro test {{FLOW}} ; Pop-Location }
+
+# Quick smoke test — only the bypass-mode flow, which doesn't need real
+# Firebase Auth credentials. Fastest way to verify the local pipeline works.
+e2e-smoke:
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro test .maestro/bypass-mode-smoke.yaml ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro test .maestro/bypass-mode-smoke.yaml ; Pop-Location }
+
+# Open the Maestro Studio (interactive flow recorder) against a running device.
+e2e-studio:
+  if ($IsWindows -or $env:OS -eq 'Windows_NT') { Push-Location {{FRONTEND_DIR}} ; wsl maestro studio ; Pop-Location } else { Push-Location {{FRONTEND_DIR}} ; maestro studio ; Pop-Location }
+
 # ────────────────────────── Terraform ──────────────────────────
 
 tf-fmt:

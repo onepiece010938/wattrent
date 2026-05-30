@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "test:ci": "jest --ci --runInBand"
+    "test:ci": "jest --ci --runInBand",
+    "e2e": "maestro test .maestro/",
+    "e2e:one": "maestro test"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
