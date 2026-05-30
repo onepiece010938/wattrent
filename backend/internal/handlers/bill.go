@@ -15,15 +15,14 @@ import (
 
 	"wattrent/internal/middleware"
 	"wattrent/internal/models"
-	"wattrent/internal/services"
 )
 
 type BillHandler struct {
-	bills   *services.BillService
-	storage *services.StorageService
+	bills   billStore
+	storage downloadSigner
 }
 
-func NewBillHandler(bills *services.BillService, storage *services.StorageService) *BillHandler {
+func NewBillHandler(bills billStore, storage downloadSigner) *BillHandler {
 	return &BillHandler{bills: bills, storage: storage}
 }
 

@@ -1,0 +1,36 @@
+# Sign-in flow.
+#
+# Pre-conditions:
+#   - App is installed and either freshly launched or signed out.
+#   - You have a real Firebase Email/Password user, OR the app is running in
+#     AUTH_BYPASS dev mode (no EXPO_PUBLIC_FIREBASE_* env vars → bypass).
+#
+# Env variables (override at the command line):
+#   MAESTRO_APP_ID  -- defaults to app.wattrent
+#   E2E_EMAIL       -- defaults to the placeholder shown in the email field
+#   E2E_PASSWORD    -- defaults to a placeholder; supply via -e flag
+appId: ${MAESTRO_APP_ID:-app.wattrent}
+env:
+  E2E_EMAIL: you@example.com
+  E2E_PASSWORD: changeMe!
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "Sign in"
+# If we landed straight on Home (bypass mode), this flow ends early.
+- runFlow:
+    when:
+      visible: "Welcome back"
+    commands:
+      - tapOn:
+          text: "Email"
+      - inputText: ${E2E_EMAIL}
+      - tapOn:
+          text: "Password"
+      - inputText: ${E2E_PASSWORD}
+      - tapOn:
+          text: "Sign in"
+- assertVisible:
+    text: "WattRent"
+    timeout: 15000

@@ -7,14 +7,13 @@ import (
 
 	"wattrent/internal/middleware"
 	"wattrent/internal/models"
-	"wattrent/internal/services"
 )
 
 type OCRHandler struct {
-	ocr *services.OCRService
+	ocr ocrRunner
 }
 
-func NewOCRHandler(ocr *services.OCRService) *OCRHandler {
+func NewOCRHandler(ocr ocrRunner) *OCRHandler {
 	return &OCRHandler{ocr: ocr}
 }
 

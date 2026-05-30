@@ -1,0 +1,32 @@
+# Sign-up flow (create a new account).
+#
+# WARNING: this creates a real Firebase user on whatever project the build
+# points at. Use a staging project, and delete the user via the Firebase
+# console afterwards.
+appId: ${MAESTRO_APP_ID:-app.wattrent}
+env:
+  E2E_NEW_EMAIL: e2e-${MAESTRO_FLOW_RUN_ID:-local}@example.com
+  E2E_NEW_PASSWORD: SuperStr0ng!Pass
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    text: "Sign in"
+- tapOn:
+    text: "Create an account"
+- assertVisible:
+    text: "Create your account"
+- tapOn:
+    text: "Email"
+- inputText: ${E2E_NEW_EMAIL}
+- tapOn:
+    text: "Password"
+- inputText: ${E2E_NEW_PASSWORD}
+- tapOn:
+    text: "Confirm password"
+- inputText: ${E2E_NEW_PASSWORD}
+- tapOn:
+    text: "Sign up"
+- assertVisible:
+    text: "WattRent"
+    timeout: 20000

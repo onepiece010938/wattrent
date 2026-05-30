@@ -7,14 +7,13 @@ import (
 
 	"wattrent/internal/middleware"
 	"wattrent/internal/models"
-	"wattrent/internal/services"
 )
 
 type UserHandler struct {
-	users *services.UserService
+	users userStore
 }
 
-func NewUserHandler(users *services.UserService) *UserHandler {
+func NewUserHandler(users userStore) *UserHandler {
 	return &UserHandler{users: users}
 }
 

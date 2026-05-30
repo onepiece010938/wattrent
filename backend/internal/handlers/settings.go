@@ -7,14 +7,13 @@ import (
 
 	"wattrent/internal/middleware"
 	"wattrent/internal/models"
-	"wattrent/internal/services"
 )
 
 type SettingsHandler struct {
-	settings *services.SettingsService
+	settings settingsStore
 }
 
-func NewSettingsHandler(settings *services.SettingsService) *SettingsHandler {
+func NewSettingsHandler(settings settingsStore) *SettingsHandler {
 	return &SettingsHandler{settings: settings}
 }
 

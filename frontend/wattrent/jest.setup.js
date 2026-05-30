@@ -68,6 +68,17 @@ jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({}), {
   virtual: true,
 });
 
+// NativeWind's runtime (react-native-css-interop) destructures Appearance
+// from react-native at module load. In Jest's jsdom environment Appearance
+// can be undefined, so importing any file with className="" crashes with
+// "Cannot read properties of undefined (reading 'getColorScheme')". We
+// short-circuit the runtime to a no-op JSX runtime: className becomes a
+// dead prop but the component tree still renders correctly for assertions.
+jest.mock('react-native-css-interop/jsx-runtime', () => require('react/jsx-runtime'));
+jest.mock('react-native-css-interop/jsx-dev-runtime', () =>
+  require('react/jsx-dev-runtime'),
+);
+
 // Provide a stable `__DEV__` global. Jest sets it to true via jest-expo preset,
 // but we set it explicitly so test assertions don't depend on env detection.
 // eslint-disable-next-line no-undef

@@ -7,14 +7,13 @@ import (
 
 	"wattrent/internal/middleware"
 	"wattrent/internal/models"
-	"wattrent/internal/services"
 )
 
 type UploadHandler struct {
-	storage *services.StorageService
+	storage uploadSigner
 }
 
-func NewUploadHandler(storage *services.StorageService) *UploadHandler {
+func NewUploadHandler(storage uploadSigner) *UploadHandler {
 	return &UploadHandler{storage: storage}
 }
 

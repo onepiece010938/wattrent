@@ -1,0 +1,45 @@
+# Maestro E2E — opt-in.
+#
+# Triggered manually (workflow_dispatch). Not part of every PR because
+# Maestro Cloud is a paid service.
+#
+# Pre-reqs:
+#   1. Sign up at https://cloud.mobile.dev and create a project.
+#   2. Add MAESTRO_CLOUD_API_KEY to repository secrets.
+#   3. Make an EAS build for either iOS or Android (e.g. `eas build --profile preview`).
+#   4. Trigger this workflow with the build artefact URL.
+name: e2e-maestro
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_file_url:
+        description: "URL to an .ipa or .apk produced by eas build"
+        required: true
+      platform:
+        description: "ios or android"
+        required: true
+        default: "android"
+        type: choice
+        options:
+          - ios
+          - android
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download app build
+        run: |
+          curl -L -o "app.${{ github.event.inputs.platform == 'ios' && 'ipa' || 'apk' }}" \
+            "${{ github.event.inputs.app_file_url }}"
+
+      - name: Upload to Maestro Cloud
+        uses: mobile-dev-inc/action-maestro-cloud@v1
+        with:
+          api-key: ${{ secrets.MAESTRO_CLOUD_API_KEY }}
+          app-file: "app.${{ github.event.inputs.platform == 'ios' && 'ipa' || 'apk' }}"
+          workspace: frontend/wattrent/.maestro

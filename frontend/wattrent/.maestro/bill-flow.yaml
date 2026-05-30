@@ -1,0 +1,43 @@
+# Capture → save → see-it-on-history flow.
+#
+# Pre-conditions: app is signed in (bypass mode OK).
+# Skips OCR using the dev mode toggle so the flow can run on a simulator
+# without a real meter photo. To enable that toggle, open Settings →
+# Advanced → "Skip OCR (dev only)" before running this flow, OR set
+# EXPO_PUBLIC_DEV_MODE=1 at build time.
+appId: ${MAESTRO_APP_ID:-app.wattrent}
+---
+- launchApp
+- assertVisible:
+    text: "WattRent"
+
+# Open the Capture tab.
+- tapOn:
+    text: "Capture"
+- assertVisible:
+    text: "Capture Meter"
+    timeout: 8000
+
+# Either upload + OCR happens, or (in dev mode) we land straight on the form.
+# Either way the meter reading input is reachable.
+- tapOn:
+    text: "Enter meter reading"
+    optional: true
+- inputText: "9999"
+- hideKeyboard
+
+# Tap Calculate / save.
+- tapOn:
+    text: "Calculate Bill"
+- assertVisible:
+    text: "Bill calculated and saved"
+    timeout: 15000
+
+# Pivot to History tab to confirm the new bill appears.
+- tapOn:
+    text: "History"
+- assertVisible:
+    text: "Bill History"
+- assertVisible:
+    text: "9999"
+    timeout: 5000

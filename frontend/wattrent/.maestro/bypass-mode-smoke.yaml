@@ -1,0 +1,19 @@
+# Smoke test for AUTH_BYPASS dev mode.
+#
+# When EXPO_PUBLIC_FIREBASE_* env vars are unset and the build is __DEV__,
+# the AuthProvider injects a synthetic dev user and the app skips the
+# sign-in screen entirely. This flow asserts that path.
+appId: ${MAESTRO_APP_ID:-app.wattrent}
+---
+- launchApp:
+    clearState: true
+# Bypass mode lands straight on Home; no Sign-in screen.
+- assertNotVisible:
+    text: "Welcome back"
+- assertVisible:
+    text: "WattRent"
+    timeout: 10000
+- tapOn:
+    text: "History"
+- assertVisible:
+    text: "Bill History"

@@ -1,0 +1,23 @@
+# Settings → sign out flow.
+#
+# Pre-conditions: app is signed in via real Firebase Auth (NOT bypass mode).
+# In bypass mode signOut is a no-op and the assertion at the bottom will
+# fail — that's expected.
+appId: ${MAESTRO_APP_ID:-app.wattrent}
+---
+- launchApp
+- assertVisible:
+    text: "WattRent"
+- tapOn:
+    text: "Settings"
+- assertVisible:
+    text: "Account"
+- tapOn:
+    text: "Sign out"
+# Native confirmation dialog.
+- tapOn:
+    text: "Sign out"
+    optional: true
+- assertVisible:
+    text: "Sign in"
+    timeout: 10000
