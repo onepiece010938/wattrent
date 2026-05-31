@@ -55,15 +55,18 @@ export default {
         // Info.plist / AndroidManifest at native build time. Without this the
         // app crashes on launch.
         //
-        // The defaults are Google's official TEST app IDs — always safe and
-        // never count as invalid traffic. Provide real IDs via env when ready:
-        //   EXPO_PUBLIC_ADMOB_APP_ID_IOS=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
+        // Android default: real production App ID for the "Wattrent AI" AdMob
+        // app (ca-app-pub-1948624676245995~8669709965). Override per build via
         //   EXPO_PUBLIC_ADMOB_APP_ID_ANDROID=ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY
+        //
+        // iOS default: Google's official TEST App ID. Replace once an iOS
+        // AdMob app exists by setting EXPO_PUBLIC_ADMOB_APP_ID_IOS or by
+        // editing the fallback below. NEVER reuse the Android App ID on iOS.
         "react-native-google-mobile-ads",
         {
           androidAppId:
             process.env.EXPO_PUBLIC_ADMOB_APP_ID_ANDROID ||
-            "ca-app-pub-3940256099942544~3347511713",
+            "ca-app-pub-1948624676245995~8669709965",
           iosAppId:
             process.env.EXPO_PUBLIC_ADMOB_APP_ID_IOS ||
             "ca-app-pub-3940256099942544~1458002511",
@@ -180,9 +183,17 @@ export default {
         measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || null
       },
       // AdMob ad-unit IDs (banner) — separate from the App IDs used by the
-      // config plugin. Leave null to fall back to Google's test banner ID.
+      // config plugin. lib/ads.ts forces Google's TestIds.BANNER whenever
+      // __DEV__ is true, so these production IDs only kick in for release
+      // builds. Override per channel via EXPO_PUBLIC_ADMOB_BANNER_* env vars.
+      //
+      // Android default: "橫幅01" unit from the Wattrent AI AdMob app.
+      // iOS default: null until a matching iOS unit is created — lib/ads.ts
+      // falls back to the Google test banner ID when null.
       ads: {
-        androidBanner: process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID || null,
+        androidBanner:
+          process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID ||
+          "ca-app-pub-1948624676245995/2782958468",
         iosBanner: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS || null
       },
       eas: {
