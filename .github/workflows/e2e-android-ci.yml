@@ -49,11 +49,11 @@ jobs:
         working-directory: frontend/wattrent
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: 22
           cache: npm
           cache-dependency-path: frontend/wattrent/package-lock.json
 
@@ -97,8 +97,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # FLOWS is passed through an env var (not direct ${{ }} interpolation in
+      # the script body) so that even maintainer-supplied workflow_dispatch
+      # inputs cannot be parsed as shell commands -> CWE-94 hardening.
       - name: Run Maestro flows
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          E2E_FLOWS: ${{ github.event.inputs.flows || '.maestro/bypass-mode-smoke.yaml' }}
         with:
           api-level: 34
           target: google_apis
@@ -108,8 +113,7 @@ jobs:
           script: |
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             # Default flow: bypass-mode smoke. Override via workflow_dispatch input.
-            FLOWS="${{ github.event.inputs.flows || '.maestro/bypass-mode-smoke.yaml' }}"
-            maestro test $FLOWS
+            maestro test $E2E_FLOWS
 
       - name: Upload Maestro debug output on failure
         if: failure()

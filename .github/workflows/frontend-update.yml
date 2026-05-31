@@ -64,9 +64,21 @@ jobs:
       - name: Install
         run: npm ci
 
+      # WHY env-var indirection:
+      #   Pasting `${{ github.event.head_commit.message }}` directly into a `run:`
+      #   block lets commit-message bodies (e.g. "fix: foo\nbar: baz") be parsed as
+      #   shell commands -> CWE-94 script injection. Passing through an env var
+      #   forces the value to be a single argument.
       - name: Publish OTA
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          FALLBACK_MSG: Manual update from ${{ github.sha }}
         run: |
+          MSG="${COMMIT_MSG:-$FALLBACK_MSG}"
+          # Only the commit subject (first line) goes to EAS; the body can
+          # contain quotes / newlines that confuse the dashboard view.
+          MSG="${MSG%%$'\n'*}"
           eas update \
             --branch "$EAS_BRANCH" \
-            --message "${{ github.event.head_commit.message || format('Manual update from {0}', github.sha) }}" \
+            --message "$MSG" \
             --non-interactive
