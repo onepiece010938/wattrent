@@ -9,11 +9,12 @@ appId: ${MAESTRO_APP_ID || 'app.wattrent'}
     clearState: true
 # Bypass mode lands straight on Home; no Sign-in screen.
 # After clearState the JS bundle has to be re-downloaded from Metro on dev
-# builds, which is slow on a cold emulator — give it a generous timeout.
+# builds AND Hermes parses ~2250 modules from scratch. On a cold emulator
+# this can take 60-90s before the React root mounts, so give it 120s here.
 - extendedWaitUntil:
     visible:
       text: "WattRent"
-    timeout: 45000
+    timeout: 120000
 - assertNotVisible:
     text: "Welcome back"
 - tapOn:
