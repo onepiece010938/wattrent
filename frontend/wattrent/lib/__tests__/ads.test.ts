@@ -49,6 +49,31 @@ describe('lib/ads (default ios runtime)', () => {
     // 2nd call should hit the cached promise (no throw, same return).
     await expect(initAds()).resolves.toBeUndefined();
   });
+
+  it('getInterstitialAdUnitId returns Google TestIds.INTERSTITIAL in __DEV__', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getInterstitialAdUnitId } = require('../ads');
+    expect(getInterstitialAdUnitId()).toBe('ca-app-pub-3940256099942544/1033173712');
+  });
+
+  it('getInterstitialAdUnitId prefers EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS in prod on iOS', () => {
+    // eslint-disable-next-line no-undef
+    (global as unknown as { __DEV__: boolean }).__DEV__ = false;
+    process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS = 'ca-app-pub-9999/ios-interstitial';
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { getInterstitialAdUnitId } = require('../ads');
+    expect(getInterstitialAdUnitId()).toBe('ca-app-pub-9999/ios-interstitial');
+    delete process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS;
+  });
+
+  it('prefetchInterstitial + maybeShowInterstitialAd are safe no-ops when no ad is loaded', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { prefetchInterstitial, maybeShowInterstitialAd } = require('../ads');
+    // jest mock's load() never fires a LOADED event, so the ad never becomes
+    // ready — maybeShow must short-circuit and resolve immediately.
+    await expect(prefetchInterstitial()).resolves.toBeUndefined();
+    await expect(maybeShowInterstitialAd()).resolves.toBeUndefined();
+  });
 });
 
 describe('lib/ads on web', () => {

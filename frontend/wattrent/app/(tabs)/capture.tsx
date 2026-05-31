@@ -24,6 +24,7 @@ import { getDevMode, isDevModeAvailable } from '@/lib/devMode';
 import { compressForOcr, base64ToBytes } from '@/lib/imageCompression';
 import { useToast } from '@/components/Toast';
 import telemetry from '@/lib/telemetry';
+import { maybeShowInterstitialAd, prefetchInterstitial } from '@/lib/ads';
 
 export default function CaptureScreen() {
   const router = useRouter();
@@ -54,6 +55,10 @@ export default function CaptureScreen() {
 
   useEffect(() => {
     loadSettings();
+    // Preload the post-bill interstitial so it can show instantly when the
+    // user finishes saving. ~3-5s typical download time; by the time the
+    // user has taken a photo + OCR'd + confirmed, the ad is ready.
+    prefetchInterstitial();
   }, []);
 
   // Handle screen-focus changes
@@ -267,6 +272,11 @@ export default function CaptureScreen() {
 
       setShowConfirm(false);
       showToast({ kind: 'success', message: t('capture.billCalculatedAndSaved') });
+      // Bridge the "bill saved" → "history" transition with an interstitial
+      // ad. No-op when no ad is ready, on cooldown, or on Web/Jest. Awaiting
+      // ensures navigation only happens after the user dismisses the ad,
+      // which is the natural UX pattern Google recommends.
+      await maybeShowInterstitialAd();
       router.push('/(tabs)/history');
     } catch (error) {
       console.error(t('capture.createBillFailedConsole'), error);

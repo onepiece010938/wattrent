@@ -182,19 +182,25 @@ export default {
         messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || null,
         measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || null
       },
-      // AdMob ad-unit IDs (banner) — separate from the App IDs used by the
-      // config plugin. lib/ads.ts forces Google's TestIds.BANNER whenever
+      // AdMob ad-unit IDs — separate from the App IDs used by the
+      // config plugin. lib/ads.ts forces Google's TestIds.* whenever
       // __DEV__ is true, so these production IDs only kick in for release
-      // builds. Override per channel via EXPO_PUBLIC_ADMOB_BANNER_* env vars.
+      // builds. Override per channel via EXPO_PUBLIC_ADMOB_* env vars.
       //
-      // Android default: "橫幅01" unit from the Wattrent AI AdMob app.
-      // iOS default: null until a matching iOS unit is created — lib/ads.ts
-      // falls back to the Google test banner ID when null.
+      // Android defaults:
+      //   · banner       = "橫幅01" unit (Wattrent AI AdMob app)
+      //   · interstitial = "wattrent-bill-saved-interstitial" unit
+      // iOS defaults: null until matching iOS units are created — lib/ads.ts
+      // falls back to the Google test IDs when null.
       ads: {
         androidBanner:
           process.env.EXPO_PUBLIC_ADMOB_BANNER_ANDROID ||
           "ca-app-pub-1948624676245995/2782958468",
-        iosBanner: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS || null
+        iosBanner: process.env.EXPO_PUBLIC_ADMOB_BANNER_IOS || null,
+        androidInterstitial:
+          process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID ||
+          "ca-app-pub-1948624676245995/2107640818",
+        iosInterstitial: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS || null
       },
       eas: {
         projectId: "dc9a5284-10b5-47da-bc1c-053c36d08564"

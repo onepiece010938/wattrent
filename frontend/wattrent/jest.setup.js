@@ -54,13 +54,24 @@ jest.mock('react-native-google-mobile-ads', () => ({
   }),
   BannerAd: () => null,
   BannerAdSize: { ANCHORED_ADAPTIVE_BANNER: 'ANCHORED_ADAPTIVE_BANNER' },
-  TestIds: { BANNER: 'ca-app-pub-3940256099942544/6300978111' },
+  TestIds: {
+    BANNER: 'ca-app-pub-3940256099942544/6300978111',
+    INTERSTITIAL: 'ca-app-pub-3940256099942544/1033173712',
+  },
   MaxAdContentRating: { G: 'G', PG: 'PG', T: 'T', MA: 'MA' },
   AdsConsent: {
     requestInfoUpdate: jest.fn(async () => ({ isConsentFormAvailable: false, status: 0 })),
     showForm: jest.fn(async () => undefined),
   },
   AdsConsentStatus: { UNKNOWN: 0, REQUIRED: 1, NOT_REQUIRED: 2, OBTAINED: 3 },
+  AdEventType: { LOADED: 'loaded', ERROR: 'error', OPENED: 'opened', CLOSED: 'closed' },
+  InterstitialAd: {
+    createForAdRequest: jest.fn(() => ({
+      load: jest.fn(),
+      show: jest.fn(),
+      addAdEventListener: jest.fn(() => jest.fn()),
+    })),
+  },
 }));
 
 // Silence the noisy "Animated: useNativeDriver" warning during tests.
