@@ -97,6 +97,33 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # The debug APK produced by `assembleDebug` is *not* self-contained: at
+      # runtime the React-Native bridge fetches the JS bundle from
+      # http://localhost:8081 (Metro). We therefore start Metro on the
+      # runner host *before* booting the emulator, and use `adb reverse`
+      # (inside the emulator-runner script) so the emulator's localhost:8081
+      # resolves to the host's Metro.
+      #
+      # We run with `--offline` so npx never tries to phone home, and
+      # background the process with `nohup` so the workflow step exits.
+      - name: Start Metro bundler in background
+        run: |
+          nohup npx expo start --port 8081 --offline > metro.log 2>&1 &
+          echo "METRO_PID=$!" >> "$GITHUB_ENV"
+          # Wait up to 90 s for Metro to serve /status with HTTP 200.
+          for i in $(seq 1 90); do
+            if curl -fsS http://localhost:8081/status > /dev/null 2>&1; then
+              echo "Metro ready after ${i}s"
+              break
+            fi
+            if [ "$i" = "90" ]; then
+              echo "::error::Metro never became ready"
+              tail -n 100 metro.log
+              exit 1
+            fi
+            sleep 1
+          done
+
       # FLOWS is passed through an env var (not direct ${{ }} interpolation in
       # the script body) so that even maintainer-supplied workflow_dispatch
       # inputs cannot be parsed as shell commands -> CWE-94 hardening.
@@ -111,9 +138,27 @@ jobs:
           profile: pixel_7
           working-directory: frontend/wattrent
           script: |
+            # Expose host Metro (port 8081) inside the emulator. Must run
+            # AFTER `adb` knows about the freshly-booted emulator-5554.
+            adb reverse tcp:8081 tcp:8081
             adb install -r android/app/build/outputs/apk/debug/app-debug.apk
             # Default flow: bypass-mode smoke. Override via workflow_dispatch input.
             maestro test $E2E_FLOWS
+
+      - name: Stop Metro bundler
+        if: always()
+        run: |
+          if [ -n "${METRO_PID:-}" ]; then
+            kill "$METRO_PID" 2>/dev/null || true
+          fi
+
+      - name: Upload Metro log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metro-log
+          path: frontend/wattrent/metro.log
+          if-no-files-found: ignore
 
       - name: Upload Maestro debug output on failure
         if: failure()
