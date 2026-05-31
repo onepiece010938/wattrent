@@ -18,7 +18,8 @@
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_ENV": "preview",
-        "EXPO_PUBLIC_DEV_MODE_ENABLED": "true"
+        "EXPO_PUBLIC_DEV_MODE_ENABLED": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "staging": {
@@ -27,6 +28,7 @@
       "env": {
         "EXPO_PUBLIC_ENV": "staging",
         "EXPO_PUBLIC_DEV_MODE_ENABLED": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_API_URL": "$EXPO_PUBLIC_API_URL_STAGING",
         "EXPO_PUBLIC_SENTRY_DSN": "$EXPO_PUBLIC_SENTRY_DSN_FRONTEND",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "$EXPO_PUBLIC_FIREBASE_API_KEY",
@@ -49,6 +51,7 @@
       "channel": "production",
       "env": {
         "EXPO_PUBLIC_ENV": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_API_URL": "$EXPO_PUBLIC_API_URL_PRODUCTION",
         "EXPO_PUBLIC_SENTRY_DSN": "$EXPO_PUBLIC_SENTRY_DSN_FRONTEND",
         "EXPO_PUBLIC_FIREBASE_API_KEY": "$EXPO_PUBLIC_FIREBASE_API_KEY",
