@@ -78,7 +78,17 @@ jobs:
           # Only the commit subject (first line) goes to EAS; the body can
           # contain quotes / newlines that confuse the dashboard view.
           MSG="${MSG%%$'\n'*}"
+          # The EAS environment holds the EXPO_PUBLIC_* values (Firebase / API /
+          # Google) that must be baked into the OTA bundle. Without it the app
+          # ships with no config and gets stuck initializing on launch. staging +
+          # preview branches read the "preview" environment; production reads
+          # "production".
+          case "$EAS_BRANCH" in
+            production) EAS_ENV=production ;;
+            *)          EAS_ENV=preview ;;
+          esac
           eas update \
             --branch "$EAS_BRANCH" \
+            --environment "$EAS_ENV" \
             --message "$MSG" \
             --non-interactive
