@@ -87,6 +87,7 @@ describe('devMode', () => {
         skipOcr: false,
         forceMockHistory: false,
         apiUrlOverride: '',
+        disableAds: false,
       }),
     ).toBe(false);
     expect(
@@ -94,6 +95,7 @@ describe('devMode', () => {
         skipOcr: true,
         forceMockHistory: false,
         apiUrlOverride: '',
+        disableAds: false,
       }),
     ).toBe(true);
     expect(
@@ -101,6 +103,15 @@ describe('devMode', () => {
         skipOcr: false,
         forceMockHistory: false,
         apiUrlOverride: 'http://x',
+        disableAds: false,
+      }),
+    ).toBe(true);
+    expect(
+      mod.isAnyDevToggleActive({
+        skipOcr: false,
+        forceMockHistory: false,
+        apiUrlOverride: '',
+        disableAds: true,
       }),
     ).toBe(true);
     mod.__resetDevModeForTests();

@@ -84,8 +84,12 @@ func main() {
 	storageSvc := services.NewStorageService(cls.Storage, cfg.MetersBucket)
 	ocrSvc := services.NewOCRService(cls.Gemini, storageSvc, cfg.GeminiModel)
 	userSvc := services.NewUserService(cls.Firestore)
+	// deleteAuthUser is disabled under AUTH_BYPASS where the uid is a synthetic
+	// dev user that exists in no Firebase project.
+	accountSvc := services.NewAccountService(cls.Firestore, storageSvc, cls.Auth, !cfg.AuthBypass)
+	lineSvc := services.NewLINEAuthService(cls.Auth, cfg.LINEChannelID, cfg.LINEChannelSecret)
 
-	router := buildRouter(cfg, cls, settingsSvc, billSvc, storageSvc, ocrSvc, userSvc)
+	router := buildRouter(cfg, cls, settingsSvc, billSvc, storageSvc, ocrSvc, userSvc, accountSvc, lineSvc)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -123,6 +127,8 @@ func buildRouter(
 	storageSvc *services.StorageService,
 	ocrSvc *services.OCRService,
 	userSvc *services.UserService,
+	accountSvc *services.AccountService,
+	lineSvc *services.LINEAuthService,
 ) *gin.Engine {
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -153,6 +159,8 @@ func buildRouter(
 	ocrHandler := handlers.NewOCRHandler(ocrSvc)
 	uploadHandler := handlers.NewUploadHandler(storageSvc)
 	userHandler := handlers.NewUserHandler(userSvc)
+	accountHandler := handlers.NewAccountHandler(accountSvc)
+	lineAuthHandler := handlers.NewLINEAuthHandler(lineSvc)
 
 	api := r.Group("/api/v1")
 	api.GET("/health", func(c *gin.Context) {
@@ -165,6 +173,14 @@ func buildRouter(
 	apiLimiter := middleware.NewRateLimit(0.5 /* tokens/sec ≈ 30/min */, 30 /* burst */, 10*time.Minute)
 	// Stricter limit for the expensive OCR endpoint (Gemini calls cost money).
 	ocrLimiter := middleware.NewRateLimit(0.05 /* 3/min */, 10 /* burst */, 10*time.Minute)
+	// Per-IP limit for unauthenticated SSO exchange endpoints (LINE, future
+	// providers). Sign-in is a one-shot human action so a tiny budget is fine.
+	authLimiter := middleware.NewRateLimit(0.1 /* 6/min */, 10 /* burst */, 10*time.Minute)
+
+	// Unauthenticated SSO token-exchange routes. These cannot live under the
+	// `authed` group because that's where Bearer-token verification runs —
+	// these endpoints exist precisely to mint that Bearer token.
+	api.POST("/auth/line/exchange", authLimiter.Middleware(), lineAuthHandler.Exchange)
 
 	// Everything below requires auth
 	authed := api.Group("")
@@ -174,6 +190,8 @@ func buildRouter(
 		// Users
 		authed.GET("/users/me", userHandler.GetMe)
 		authed.POST("/users/me", userHandler.UpsertMe)
+		authed.DELETE("/users/me", accountHandler.DeleteMe)
+		authed.DELETE("/users/me/data", accountHandler.ClearData)
 
 		// OCR (extra rate limit on top of the global one)
 		authed.POST("/ocr/process", ocrLimiter.Middleware(), ocrHandler.Process)

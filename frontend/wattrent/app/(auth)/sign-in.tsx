@@ -17,16 +17,22 @@ import { useAuth } from '@/lib/auth';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { mapAuthError } from '@/lib/authErrors';
+import { useGoogleSignIn } from '@/lib/googleAuth';
+import { useLineSignIn } from '@/lib/lineAuth';
 
 export default function SignInScreen() {
   const router = useRouter();
   const { signIn, mode } = useAuth();
   const { t } = useTranslation();
   const { isDarkColorScheme } = useColorScheme();
+  const google = useGoogleSignIn();
+  const line = useLineSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [lineBusy, setLineBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
@@ -44,6 +50,30 @@ export default function SignInScreen() {
       setError(t(mapAuthError(err)));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const onGoogle = async () => {
+    setError(null);
+    setGoogleBusy(true);
+    try {
+      await google.signIn();
+    } catch (err) {
+      setError(t(mapAuthError(err)));
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const onLine = async () => {
+    setError(null);
+    setLineBusy(true);
+    try {
+      await line.signIn();
+    } catch (err) {
+      setError(t(mapAuthError(err)));
+    } finally {
+      setLineBusy(false);
     }
   };
 
@@ -121,6 +151,53 @@ export default function SignInScreen() {
                   <Text className="text-primary-foreground font-semibold text-base">{t('auth.signIn')}</Text>
                 )}
               </TouchableOpacity>
+
+              {google.available || line.available ? (
+                <>
+                  <View className="flex-row items-center my-4">
+                    <View className="flex-1 h-px bg-border" />
+                    <Text className="px-3 text-xs text-muted-foreground uppercase">{t('auth.orDivider')}</Text>
+                    <View className="flex-1 h-px bg-border" />
+                  </View>
+                  {google.available ? (
+                    <TouchableOpacity
+                      disabled={googleBusy || !google.ready}
+                      onPress={onGoogle}
+                      className="border border-border rounded-lg py-3.5 flex-row items-center justify-center bg-card"
+                    >
+                      {googleBusy ? (
+                        <ActivityIndicator color={isDarkColorScheme ? '#E5E7EB' : '#374151'} />
+                      ) : (
+                        <>
+                          <Ionicons name="logo-google" size={18} color={isDarkColorScheme ? '#E5E7EB' : '#374151'} />
+                          <Text className="ml-2 text-foreground font-medium text-base">{t('auth.continueWithGoogle')}</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : null}
+                  {line.available ? (
+                    <TouchableOpacity
+                      disabled={lineBusy || !line.ready}
+                      onPress={onLine}
+                      // LINE brand green (#06C755). White content on green per LINE
+                      // brand guidelines for the "primary" sign-in button style.
+                      style={{ backgroundColor: '#06C755' }}
+                      className="rounded-lg py-3.5 flex-row items-center justify-center mt-3"
+                    >
+                      {lineBusy ? (
+                        <ActivityIndicator color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="chatbubble-ellipses" size={18} color="#FFFFFF" />
+                          <Text className="ml-2 font-semibold text-base" style={{ color: '#FFFFFF' }}>
+                            {t('auth.continueWithLine')}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              ) : null}
 
               <View className="flex-row justify-between mt-4">
                 <TouchableOpacity onPress={() => router.push('/(auth)/reset')}>

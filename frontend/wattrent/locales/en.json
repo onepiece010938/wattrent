@@ -43,6 +43,9 @@
     "title": "Capture Meter",
     "cameraPermissionTitle": "Camera permission is required to capture meter readings",
     "grantPermission": "Grant Permission",
+    "setupRequiredTitle": "Set up your defaults first",
+    "setupRequiredHint": "Enter your electricity rate, rent and previous reading in Settings before creating a bill.",
+    "goToSettings": "Go to Settings",
     "processingImage": "Recognizing meter reading...",
     "startingCamera": "Starting camera...",
     "meterReading": "Meter Reading",
@@ -109,6 +112,8 @@
     "landlordName": "Landlord Name",
     "paymentMethod": "Payment Method",
     "selectPaymentMethod": "Select Payment Method",
+    "messageTemplate": "Share message template",
+    "messageTemplateHint": "Placeholders: {period} {meterReading} {usage} {rate} {electricityCost} {rent} {totalAmount}. Leave empty to use the default message.",
     "notifications": "Notification Settings",
     "paymentReminder": "Payment Reminder",
     "autoBackup": "Auto Backup",
@@ -126,6 +131,7 @@
     "clearDataTitle": "Clear Data",
     "clearDataMessage": "Are you sure you want to clear all data? This action cannot be undone.",
     "allDataCleared": "All data cleared",
+    "clearDataFailed": "Failed to clear data",
     "loadSettingsFailed": "Failed to load settings",
     "saveSettingsFailed": "Failed to save settings",
     "unsavedChangesTitle": "Unsaved Changes",
@@ -165,7 +171,8 @@
     "electricityRate": "4.5",
     "rent": "8000",
     "meterReading": "0",
-    "landlordName": "John Doe"
+    "landlordName": "John Doe",
+    "messageTemplate": "This month's electricity is {electricityCost}, rent {rent}, total {totalAmount}. Thank you!"
   },
   "languages": {
     "zh-TW": "Traditional Chinese",
@@ -184,7 +191,15 @@
       "failed": "Could not recognise the meter. Please enter the reading manually.",
       "lowConfidence": "Reading is uncertain ({{percent}}%). Please verify before saving.",
       "notConfigured": "OCR is not configured on the server (missing GEMINI_API_KEY).",
-      "compressionFailed": "Failed to prepare image. Please try a different photo."
+      "compressionFailed": "Failed to prepare image. Please try a different photo.",
+      "not_configured": "Meter recognition is not configured on the server (missing GEMINI_API_KEY). Please enter the reading manually.",
+      "upstream_failed": "The meter-reading service is temporarily unavailable. Please enter the reading manually or try again later.",
+      "no_response": "The recognition service did not respond. Please enter the reading manually or retry.",
+      "invalid_model_output": "Could not parse the recognition result. Please enter the reading manually.",
+      "download_failed": "Could not load the image. Please retake the photo.",
+      "invalid_image": "Invalid image format. Please try a different photo.",
+      "invalid_image_url": "Invalid image address. Please retake the photo.",
+      "image_required": "Please take or choose a meter photo first."
     },
     "rate_limited": "Too many requests. Please slow down and try again in a minute.",
     "user": {
@@ -212,6 +227,8 @@
     "skipOcrHint": "Skip Gemini API and fake a meter reading client-side. Saves cost while testing UI.",
     "forceMockHistory": "Force mock history",
     "forceMockHistoryHint": "Show built-in sample bills instead of calling the backend.",
+    "disableAds": "Hide ads",
+    "disableAdsHint": "Preview the ad-free experience (paying users) without a real account.",
     "apiUrlOverride": "Backend URL override",
     "apiUrlPlaceholder": "https://...",
     "apiUrlHint": "Leave empty to use auto-detected URL.",
@@ -272,6 +289,9 @@
     "sendReset": "Send reset email",
     "notConfigured": "Sign-in is not configured for this build.",
     "notConfiguredHint": "EXPO_PUBLIC_FIREBASE_* environment variables are missing. Add them and rebuild.",
+    "continueWithGoogle": "Continue with Google",
+    "continueWithLine": "Continue with LINE",
+    "orDivider": "or",
     "errors": {
       "missingFields": "Please fill in both email and password.",
       "passwordTooShort": "Password must be at least 8 characters long.",
@@ -286,6 +306,15 @@
       "operationNotAllowed": "Email/password sign-in is not enabled. Contact support.",
       "requiresRecentLogin": "Please sign in again before retrying this action.",
       "notSignedIn": "You are not signed in.",
+      "signInCancelled": "Sign-in was cancelled.",
+      "googleMisconfigured": "Google sign-in is not configured for this build.",
+      "googleIosDisabled": "Google sign-in is not yet available on iOS.",
+      "lineMisconfigured": "LINE sign-in is not configured for this build.",
+      "lineIosDisabled": "LINE sign-in is not yet available on iOS.",
+      "lineDisabled": "LINE sign-in is disabled on the server. Try email or Google instead.",
+      "lineInvalidCode": "LINE rejected the sign-in attempt. Please try again.",
+      "lineUpstream": "Could not reach LINE right now. Check your connection and retry.",
+      "accountExistsDifferentCredential": "An account with this email already exists with a different sign-in method.",
       "generic": "Something went wrong. Please try again."
     }
   }

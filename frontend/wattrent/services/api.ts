@@ -4,6 +4,8 @@ import i18n from '@/lib/i18n';
 
 export interface CreateBillPayload {
   meterReading: number;
+  /** Previous period's ending reading (from the capture screen). */
+  previousReading?: number;
   electricityRate: number;
   rent: number;
   /** YYYY-MM */
@@ -128,15 +130,33 @@ class ApiService {
     });
   }
 
-  async getMe(): Promise<{ uid: string; email: string; displayName?: string } | null> {
+  async getMe(): Promise<{ uid: string; email: string; displayName?: string; adFree?: boolean } | null> {
     try {
-      const response = await this.request<{ uid: string; email: string; displayName?: string }>('/users/me');
+      const response = await this.request<{ uid: string; email: string; displayName?: string; adFree?: boolean }>('/users/me');
       return response.data ?? null;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('not_found')) return null;
       throw err;
     }
+  }
+
+  /**
+   * Permanently deletes the signed-in user's account and ALL associated data
+   * (meter photos, bills, settings, and the Firebase Auth login itself).
+   * Irreversible. Must be called while a valid ID token is still held, i.e.
+   * before signing out locally.
+   */
+  async deleteAccount(): Promise<void> {
+    await this.request<unknown>('/users/me', { method: 'DELETE' });
+  }
+
+  /**
+   * Permanently deletes all of the signed-in user's content — meter photos,
+   * bills, and settings — while keeping the account/login. Irreversible.
+   */
+  async clearData(): Promise<void> {
+    await this.request<unknown>('/users/me/data', { method: 'DELETE' });
   }
 
   /**
@@ -209,6 +229,20 @@ class ApiService {
     await this.request<void>(`/bills/${id}`, {
       method: 'DELETE',
     });
+  }
+
+  // Auth (LINE) — backend exchanges the OAuth code for a Firebase custom token.
+  // Unauthenticated; safe to call before Firebase has a user.
+  async exchangeLine(code: string, codeVerifier: string, redirectUri: string): Promise<string> {
+    const response = await this.request<{ customToken: string }>('/auth/line/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ code, codeVerifier, redirectUri }),
+    });
+    const token = response.data?.customToken;
+    if (!token) {
+      throw new Error('auth.line.exchangeFailed');
+    }
+    return token;
   }
 }
 

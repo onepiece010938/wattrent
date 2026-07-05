@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   previousMeterReading: 0,
   landlordName: '',
   paymentMethod: 'bank_transfer',
+  messageTemplate: '',
+  setupCompleted: false,
 };
 
 let authTokenProvider: (() => Promise<string | null>) | null = null;
@@ -45,6 +47,8 @@ function toPayload(s: UserSettings): SettingsPayload {
     previousMeterReading: s.previousMeterReading,
     landlordName: s.landlordName ?? '',
     paymentMethod: s.paymentMethod ?? '',
+    messageTemplate: s.messageTemplate ?? '',
+    setupCompleted: s.setupCompleted ?? false,
     language: s.language,
     notificationsEnabled: s.notificationsEnabled,
     autoBackup: s.autoBackup,

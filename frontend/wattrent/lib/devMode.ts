@@ -26,12 +26,15 @@ export interface DevModeState {
   forceMockHistory: boolean;
   /** Override API URL at runtime; empty = use lib/apiUrl.ts resolution. */
   apiUrlOverride: string;
+  /** Hide all ads, to preview the ad-free (paying-user) experience. */
+  disableAds: boolean;
 }
 
 const DEFAULTS: DevModeState = {
   skipOcr: false,
   forceMockHistory: false,
   apiUrlOverride: '',
+  disableAds: false,
 };
 
 let cached: DevModeState = { ...DEFAULTS };
@@ -93,7 +96,7 @@ export function subscribeDevMode(fn: (s: DevModeState) => void): () => void {
 /** True if any dev toggle is active and the user should see the banner. */
 export function isAnyDevToggleActive(s: DevModeState = cached): boolean {
   if (!DEV_MODE_AVAILABLE) return false;
-  return s.skipOcr || s.forceMockHistory || s.apiUrlOverride.length > 0;
+  return s.skipOcr || s.forceMockHistory || s.apiUrlOverride.length > 0 || s.disableAds;
 }
 
 /**

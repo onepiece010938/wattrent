@@ -173,6 +173,7 @@ export default function SettingsScreen() {
            state.settings.previousMeterReading !== state.initialSettings.previousMeterReading ||
            state.settings.landlordName !== state.initialSettings.landlordName ||
            state.settings.paymentMethod !== state.initialSettings.paymentMethod ||
+           state.settings.messageTemplate !== state.initialSettings.messageTemplate ||
            currentElectricityRate !== state.initialSettings.defaultElectricityRate ||
            state.selectedLanguage !== state.initialLanguage ||
            state.notificationsEnabled !== state.initialNotifications ||
@@ -433,7 +434,7 @@ export default function SettingsScreen() {
         setHasChanges(currentHasChanges);
       }
     }
-  }, [settings.defaultRent, settings.previousMeterReading, settings.landlordName, settings.paymentMethod, electricityRateText, selectedLanguage, notificationsEnabled, autoBackup]);
+  }, [settings.defaultRent, settings.previousMeterReading, settings.landlordName, settings.paymentMethod, settings.messageTemplate, electricityRateText, selectedLanguage, notificationsEnabled, autoBackup]);
 
   // Shared save logic
   const performSave = async (stateToSave?: typeof latestStateRef.current) => {
@@ -442,7 +443,10 @@ export default function SettingsScreen() {
     // Build the settings object to save
     const finalSettings = {
       ...currentState.settings,
-      defaultElectricityRate: parseFloat(currentState.electricityRateText) || 0
+      defaultElectricityRate: parseFloat(currentState.electricityRateText) || 0,
+      // Saving defaults counts as completing onboarding; the capture flow is
+      // gated on this so first-time users configure their rate/rent first.
+      setupCompleted: true,
     };
 
     console.log('saving settings:', finalSettings);
@@ -562,9 +566,15 @@ export default function SettingsScreen() {
         {
           text: t('common.confirm'),
           style: 'destructive',
-          onPress: () => {
-            // TODO: implement clear-all-data
-            Alert.alert(t('common.success'), t('settings.allDataCleared'));
+          onPress: async () => {
+            try {
+              await apiService.clearData();
+              setSettings(SYSTEM_DEFAULT_SETTINGS);
+              showToast({ kind: 'success', message: t('settings.allDataCleared') });
+            } catch (err) {
+              telemetry.captureException(err, { scope: 'settings.clearData' });
+              Alert.alert(t('common.error'), t('settings.clearDataFailed'));
+            }
           },
         },
       ]
@@ -665,6 +675,27 @@ export default function SettingsScreen() {
                   items={paymentMethods}
                   placeholder={t('settings.selectPaymentMethod')}
                 />
+              </View>
+
+              <View>
+                <Text className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  {t('settings.messageTemplate')}
+                </Text>
+                <TextInput
+                  className="border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-700"
+                  value={settings.messageTemplate ?? ''}
+                  onChangeText={(value) =>
+                    setSettings({ ...settings, messageTemplate: value })
+                  }
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  placeholder={t('placeholders.messageTemplate')}
+                  placeholderTextColor="#9CA3AF"
+                />
+                <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {t('settings.messageTemplateHint')}
+                </Text>
               </View>
             </View>
           </View>
@@ -852,6 +883,23 @@ export default function SettingsScreen() {
                 <Switch
                   value={devModeState.forceMockHistory}
                   onValueChange={(v) => setDevMode({ forceMockHistory: v })}
+                  trackColor={{ false: '#D1D5DB', true: '#F59E0B' }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              <View className="flex-row items-center justify-between py-2">
+                <View className="flex-1 pr-3">
+                  <Text className="text-base text-gray-900 dark:text-gray-100">
+                    {t('dev.disableAds')}
+                  </Text>
+                  <Text className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                    {t('dev.disableAdsHint')}
+                  </Text>
+                </View>
+                <Switch
+                  value={devModeState.disableAds}
+                  onValueChange={(v) => setDevMode({ disableAds: v })}
                   trackColor={{ false: '#D1D5DB', true: '#F59E0B' }}
                   thumbColor="#FFFFFF"
                 />

@@ -70,6 +70,42 @@ frontend-lan:
 frontend-web:
   Push-Location {{FRONTEND_DIR}}; npx expo start --web; Pop-Location
 
+# ────────────────────────── Web hosting (Firebase) ──────────────────────────
+#
+# Static Expo web build deployed to Firebase Hosting. Free tier gives 10 GB
+# storage + 360 MB / day download, way over what we need.
+#
+# Two URLs come for free per project (both auto-HTTPS, both auto-allowed by
+# Firebase Auth, so SSO callbacks just work):
+#   - https://<project>.web.app
+#   - https://<project>.firebaseapp.com
+#
+# Prerequisites (one-time):
+#   1. `npm i -g firebase-tools` (or `winget install Google.FirebaseCLI`)
+#   2. `firebase login`
+#   3. In Firebase Console, click "Hosting → Get started" once per project
+#   4. The default project alias is `staging`; edit `.firebaserc` if your
+#      actual GCP project ID differs.
+
+# Build the Expo web bundle into frontend/wattrent/dist (gitignored).
+web-build:
+  Push-Location {{FRONTEND_DIR}}; npx expo export --platform web; Pop-Location
+
+# Build + deploy to the STAGING Firebase project (default).
+# Output URL: https://<staging-project>.web.app
+web-deploy: web-build
+  firebase deploy --only hosting --project staging
+
+# Build + deploy to PRODUCTION. Use only when you're ready to release.
+web-deploy-prod: web-build
+  Write-Host "==> Deploying to PRODUCTION Firebase Hosting" -ForegroundColor Yellow
+  firebase deploy --only hosting --project production
+
+# Local preview of the deployed bundle (uses the Firebase Hosting emulator).
+# Lets you sanity-check the dist/ output before pushing live.
+web-preview: web-build
+  firebase serve --only hosting --project staging
+
 # Frontend iOS simulator (macOS only)
 frontend-ios:
   Push-Location {{FRONTEND_DIR}}; npx expo start --ios; Pop-Location

@@ -26,6 +26,16 @@ import { useToast } from '@/components/Toast';
 import telemetry from '@/lib/telemetry';
 import { maybeShowInterstitialAd, prefetchInterstitial } from '@/lib/ads';
 
+// Keep numeric text fields to a valid decimal: digits plus at most one dot.
+// Prevents invalid input like "5.5.5" or stray characters that parseFloat would
+// silently truncate.
+const sanitizeDecimal = (text: string): string => {
+  const cleaned = text.replace(/[^0-9.]/g, '');
+  const firstDot = cleaned.indexOf('.');
+  if (firstDot === -1) return cleaned;
+  return cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+};
+
 export default function CaptureScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
@@ -50,6 +60,7 @@ export default function CaptureScreen() {
   const [saving, setSaving] = useState(false);
   const [savingStage, setSavingStage] = useState<'upload' | 'create' | null>(null);
   const [lastUsage, setLastUsage] = useState<number | null>(null);
+  const [setupCompleted, setSetupCompleted] = useState<boolean | null>(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(false);
 
@@ -86,6 +97,7 @@ export default function CaptureScreen() {
       setElectricityRate(settings.defaultElectricityRate.toString());
       setRent(settings.defaultRent.toString());
       setPreviousReading(settings.previousMeterReading.toString());
+      setSetupCompleted(settings.setupCompleted ?? false);
     } catch (error) {
       console.error(t('capture.loadSettingsFailed'), error);
       telemetry.captureException(error, { scope: 'capture.loadSettings' });
@@ -195,9 +207,12 @@ export default function CaptureScreen() {
       console.error('OCR failed', error);
       telemetry.captureException(error, { scope: 'capture.ocr' });
       const message = error instanceof Error ? error.message : String(error);
-      // Distinguish backend "not configured" 503 from generic failure for clearer UX
-      if (message.includes('not_configured') || message.includes('GEMINI')) {
-        setOcrError(t('errors.ocr.notConfigured'));
+      // Backend failures arrive as i18n keys (e.g. "errors.ocr.upstream_failed").
+      // Translate them so the user sees a friendly message and can enter the
+      // reading manually; fall back to a generic OCR error for anything else.
+      if (message.startsWith('errors.')) {
+        const translated = t(message);
+        setOcrError(translated === message ? t('errors.ocr.failed') : translated);
       } else {
         setOcrError(message || t('errors.ocr.failed'));
       }
@@ -263,6 +278,7 @@ export default function CaptureScreen() {
       setSavingStage('create');
       const bill = await apiService.createBill({
         meterReading: currentReading,
+        previousReading: parseFloat(previousReading) || 0,
         electricityRate: rate,
         rent: rentAmount,
         period,
@@ -304,6 +320,35 @@ export default function CaptureScreen() {
       setIsCameraReady(true);
     }, 100);
   };
+
+  // Gate the capture flow behind onboarding: until the user has saved their
+  // defaults (rate / rent / previous reading), send them to Settings first so
+  // bills aren't created with placeholder defaults.
+  if (setupCompleted === false) {
+    return (
+      <SafeAreaView className="flex-1 bg-background" edges={['top', 'bottom']}>
+        <View className="flex-1 justify-center items-center px-6">
+          <Ionicons
+            name="settings-outline"
+            size={64}
+            color={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
+          />
+          <Text className="text-lg font-semibold text-foreground text-center mt-4">
+            {t('capture.setupRequiredTitle')}
+          </Text>
+          <Text className="text-sm text-muted-foreground text-center mt-2">
+            {t('capture.setupRequiredHint')}
+          </Text>
+          <TouchableOpacity
+            className="bg-primary rounded-lg px-6 py-3 mt-6"
+            onPress={() => router.push('/(tabs)/settings')}
+          >
+            <Text className="text-primary-foreground font-semibold">{t('capture.goToSettings')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!permission) {
     return <View />;
@@ -402,7 +447,7 @@ export default function CaptureScreen() {
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={meterReading}
-                  onChangeText={setMeterReading}
+                  onChangeText={(text) => setMeterReading(sanitizeDecimal(text))}
                   keyboardType="numeric"
                   placeholder={t('capture.enterMeterReading')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
@@ -416,7 +461,7 @@ export default function CaptureScreen() {
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={previousReading}
-                  onChangeText={setPreviousReading}
+                  onChangeText={(text) => setPreviousReading(sanitizeDecimal(text))}
                   keyboardType="numeric"
                   placeholder={t('capture.enterPreviousMeterReading')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
@@ -430,7 +475,7 @@ export default function CaptureScreen() {
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={electricityRate}
-                  onChangeText={setElectricityRate}
+                  onChangeText={(text) => setElectricityRate(sanitizeDecimal(text))}
                   keyboardType="decimal-pad"
                   placeholder={t('capture.enterElectricityRate')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}
@@ -444,7 +489,7 @@ export default function CaptureScreen() {
                 <TextInput
                   className="border border-border rounded-lg px-4 py-3 text-foreground bg-card text-base"
                   value={rent}
-                  onChangeText={setRent}
+                  onChangeText={(text) => setRent(sanitizeDecimal(text))}
                   keyboardType="numeric"
                   placeholder={t('capture.enterRent')}
                   placeholderTextColor={isDarkColorScheme ? '#9CA3AF' : '#6B7280'}

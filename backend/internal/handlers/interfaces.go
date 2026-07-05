@@ -46,3 +46,11 @@ type userStore interface {
 	UpsertProfile(ctx context.Context, uid, email, displayName, photoURL string) (*models.User, error)
 	Get(ctx context.Context, uid string) (*models.User, error)
 }
+
+// accountManager performs account-wide operations that span multiple stores:
+// a full cascading delete (account + all data + login) and a data-only wipe
+// (content removed, login kept). Implemented by *services.AccountService.
+type accountManager interface {
+	DeleteAccount(ctx context.Context, uid string) error
+	ClearData(ctx context.Context, uid string) error
+}

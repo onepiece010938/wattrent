@@ -38,4 +38,29 @@ describe('mapAuthError', () => {
     expect(mapAuthError(42)).toBe('auth.errors.generic');
     expect(mapAuthError({ noCode: 'here' })).toBe('auth.errors.generic');
   });
+
+  // LINE-specific error mapping (Phase 3). The client surfaces three kinds
+  // of failures:
+  //   - client-side guards thrown from useLineSignIn (auth.line.misconfigured,
+  //     auth.line.iosDisabled, auth.line.exchangeFailed)
+  //   - backend AppError keys returned in the API envelope
+  //     (errors.auth.line_disabled / _invalid_code / _upstream)
+  it.each([
+    ['auth.line.misconfigured', 'auth.errors.lineMisconfigured'],
+    ['auth.line.iosDisabled', 'auth.errors.lineIosDisabled'],
+    ['auth.line.exchangeFailed', 'auth.errors.lineUpstream'],
+    ['errors.auth.line_disabled', 'auth.errors.lineDisabled'],
+    ['errors.auth.line_invalid_code', 'auth.errors.lineInvalidCode'],
+    ['errors.auth.line_upstream', 'auth.errors.lineUpstream'],
+  ])('maps LINE sentinel string %s -> %s', (sentinel, expected) => {
+    expect(mapAuthError(sentinel)).toBe(expected);
+  });
+
+  it.each([
+    ['auth.line.misconfigured', 'auth.errors.lineMisconfigured'],
+    ['errors.auth.line_disabled', 'auth.errors.lineDisabled'],
+    ['errors.auth.line_invalid_code', 'auth.errors.lineInvalidCode'],
+  ])('maps LINE sentinel wrapped in Error(%s) -> %s', (sentinel, expected) => {
+    expect(mapAuthError(new Error(sentinel))).toBe(expected);
+  });
 });

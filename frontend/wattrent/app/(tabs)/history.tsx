@@ -15,6 +15,7 @@ import apiService from '@/services/api';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { formatPeriod } from '~/lib/period';
+import { formatMoney } from '~/lib/format';
 import { getDevMode, isDevModeAvailable } from '@/lib/devMode';
 import AdBanner from '@/components/AdBanner';
 
@@ -100,7 +101,7 @@ export default function HistoryScreen() {
             {formatPeriod(item.period, currentLanguage)}
           </Text>
           <Text className="text-2xl font-bold text-primary mt-1">
-            {t('history.currency')}{item.totalAmount}
+            {formatMoney(item.totalAmount, currentLanguage)}
           </Text>
           <View className="mt-2 flex-row items-center">
             {item.paidAt ? (

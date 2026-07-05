@@ -79,6 +79,48 @@ jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({}), {
   virtual: true,
 });
 
+// expo-web-browser — used by expo-auth-session under the hood. Tests never
+// actually open a browser, so a no-op stub is fine.
+jest.mock('expo-web-browser', () => ({
+  __esModule: true,
+  maybeCompleteAuthSession: jest.fn(),
+  openAuthSessionAsync: jest.fn(async () => ({ type: 'cancel' })),
+  dismissAuthSession: jest.fn(),
+  WebBrowserResultType: { CANCEL: 'cancel', SUCCESS: 'success', DISMISS: 'dismiss' },
+}));
+
+// expo-auth-session/providers/google — by default returns a hook that says
+// "not ready" and a promptAsync that resolves to a cancel. Individual tests
+// can override the mock to simulate success.
+jest.mock('expo-auth-session/providers/google', () => ({
+  __esModule: true,
+  useIdTokenAuthRequest: jest.fn(() => [
+    null, // request
+    null, // response
+    jest.fn(async () => ({ type: 'cancel' })), // promptAsync
+  ]),
+  useAuthRequest: jest.fn(() => [
+    null,
+    null,
+    jest.fn(async () => ({ type: 'cancel' })),
+  ]),
+}));
+
+// expo-auth-session (top-level) — used by lib/lineAuth.ts. Default mock
+// returns a not-ready request and a cancel-resolving promptAsync; tests can
+// override per-suite by re-mocking useAuthRequest before importing lineAuth.
+jest.mock('expo-auth-session', () => ({
+  __esModule: true,
+  ResponseType: { Code: 'code', Token: 'token', IdToken: 'id_token' },
+  CodeChallengeMethod: { S256: 'S256', Plain: 'plain' },
+  makeRedirectUri: jest.fn(() => 'wattrent://redirect'),
+  useAuthRequest: jest.fn(() => [
+    null, // request
+    null, // response
+    jest.fn(async () => ({ type: 'cancel' })), // promptAsync
+  ]),
+}));
+
 // NativeWind's runtime (react-native-css-interop) destructures Appearance
 // from react-native at module load. In Jest's jsdom environment Appearance
 // can be undefined, so importing any file with className="" crashes with

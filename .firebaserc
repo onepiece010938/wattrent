@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "wattrent-staging",
+    "staging": "wattrent-staging",
+    "production": "wattrent-prod"
+  }
+}

@@ -21,8 +21,24 @@ const CODE_TO_KEY: Record<string, string> = {
   'auth/network-request-failed': 'auth.errors.network',
   'auth/operation-not-allowed': 'auth.errors.operationNotAllowed',
   'auth/requires-recent-login': 'auth.errors.requiresRecentLogin',
+  'auth/popup-closed-by-user': 'auth.errors.signInCancelled',
+  'auth/cancelled-popup-request': 'auth.errors.signInCancelled',
+  'auth/account-exists-with-different-credential':
+    'auth.errors.accountExistsDifferentCredential',
   'auth.not_configured': 'auth.notConfigured',
   'auth.not_signed_in': 'auth.errors.notSignedIn',
+  'auth.signInCancelled': 'auth.errors.signInCancelled',
+  'auth.google.misconfigured': 'auth.errors.googleMisconfigured',
+  'auth.google.iosDisabled': 'auth.errors.googleIosDisabled',
+  // LINE-specific error codes — backend-mapped (line_disabled / line_invalid_code
+  // / line_upstream) plus client-side guards (misconfigured / iosDisabled /
+  // exchangeFailed).
+  'auth.line.misconfigured': 'auth.errors.lineMisconfigured',
+  'auth.line.iosDisabled': 'auth.errors.lineIosDisabled',
+  'auth.line.exchangeFailed': 'auth.errors.lineUpstream',
+  'errors.auth.line_disabled': 'auth.errors.lineDisabled',
+  'errors.auth.line_invalid_code': 'auth.errors.lineInvalidCode',
+  'errors.auth.line_upstream': 'auth.errors.lineUpstream',
 };
 
 export function mapAuthError(err: unknown): string {

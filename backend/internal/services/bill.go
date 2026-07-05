@@ -52,7 +52,9 @@ func (s *BillService) Create(ctx context.Context, uid string, req *models.Create
 	var created models.Bill
 
 	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
-		// 1. Read the previous meter reading from settings (default 0 if missing)
+		// 1. Determine the previous meter reading. Prefer the value the client
+		//    sent (the user can view/edit it on the capture screen); fall back to
+		//    settings.previousMeterReading (default 0 if missing).
 		var prevReading float64
 		if snap, err := tx.Get(settingsRef); err == nil {
 			if v, err := snap.DataAt("previousMeterReading"); err == nil {
@@ -62,6 +64,9 @@ func (s *BillService) Create(ctx context.Context, uid string, req *models.Create
 			}
 		} else if status.Code(err) != codes.NotFound {
 			return err
+		}
+		if req.PreviousReading != nil {
+			prevReading = *req.PreviousReading
 		}
 
 		if req.MeterReading < prevReading {

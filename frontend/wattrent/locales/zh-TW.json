@@ -43,6 +43,9 @@
     "title": "拍攝電表",
     "cameraPermissionTitle": "需要相機權限才能拍攝電表",
     "grantPermission": "授予權限",
+    "setupRequiredTitle": "請先完成基本設定",
+    "setupRequiredHint": "建立帳單前，請先到設定頁填入電費單價、房租與前次電表度數。",
+    "goToSettings": "前往設定",
     "processingImage": "正在識別電表度數...",
     "startingCamera": "正在啟動相機...",
     "meterReading": "電表度數",
@@ -109,6 +112,8 @@
     "landlordName": "房東名稱",
     "paymentMethod": "付款方式",
     "selectPaymentMethod": "請選擇付款方式",
+    "messageTemplate": "分享訊息範本",
+    "messageTemplateHint": "可用變數：{period} {meterReading} {usage} {rate} {electricityCost} {rent} {totalAmount}。留空則使用預設訊息。",
     "notifications": "通知設定",
     "paymentReminder": "繳費提醒",
     "autoBackup": "自動備份",
@@ -126,6 +131,7 @@
     "clearDataTitle": "清除資料",
     "clearDataMessage": "確定要清除所有資料嗎？此操作無法復原。",
     "allDataCleared": "所有資料已清除",
+    "clearDataFailed": "清除資料失敗",
     "loadSettingsFailed": "載入設定失敗",
     "saveSettingsFailed": "儲存設定失敗",
     "unsavedChangesTitle": "未儲存的變更",
@@ -165,7 +171,8 @@
     "electricityRate": "4.5",
     "rent": "8000",
     "meterReading": "0",
-    "landlordName": "王房東"
+    "landlordName": "王房東",
+    "messageTemplate": "本月電費 {electricityCost}，房租 {rent}，合計 {totalAmount}，麻煩您了，謝謝！"
   },
   "languages": {
     "zh-TW": "繁體中文",
@@ -184,7 +191,15 @@
       "failed": "無法識別電表度數，請手動輸入。",
       "lowConfidence": "識別信心度偷低（{{percent}}%），請確認度數後儲存。",
       "notConfigured": "伺服器端未設定 OCR（缺 GEMINI_API_KEY）。",
-      "compressionFailed": "圖片處理失敗，請換一張照片。"
+      "compressionFailed": "圖片處理失敗，請換一張照片。",
+      "not_configured": "伺服器端未設定電表辨識（缺 GEMINI_API_KEY），請手動輸入度數。",
+      "upstream_failed": "電表辨識服務暫時無法使用，請手動輸入度數或稍後再試。",
+      "no_response": "辨識服務沒有回應，請手動輸入度數或重試。",
+      "invalid_model_output": "辨識結果無法解析，請手動輸入度數。",
+      "download_failed": "無法讀取圖片，請重新拍照。",
+      "invalid_image": "圖片格式無效，請換一張照片。",
+      "invalid_image_url": "圖片位址無效，請重新拍照。",
+      "image_required": "請先拍攝或選擇一張電表照片。"
     },
     "rate_limited": "操作太頻繁，請稍後再試。",
     "user": {
@@ -212,6 +227,8 @@
     "skipOcrHint": "不呼叫 Gemini，直接以估算值填入度數。測 UI 時省費用。",
     "forceMockHistory": "強制顯示示範帳單",
     "forceMockHistoryHint": "跳過後端，直接顯示內建示範帳單。",
+    "disableAds": "隱藏廣告",
+    "disableAdsHint": "不需真實帳號即可預覽免廣告（付費使用者）體驗。",
     "apiUrlOverride": "覆寫後端 URL",
     "apiUrlPlaceholder": "https://...",
     "apiUrlHint": "留空則使用自動偵測的 URL。",
@@ -272,6 +289,9 @@
     "sendReset": "寄出重設信",
     "notConfigured": "此版本未設定登入功能。",
     "notConfiguredHint": "缺少 EXPO_PUBLIC_FIREBASE_* 環境變數，請補上後重新建置。",
+    "continueWithGoogle": "使用 Google 繼續",
+    "continueWithLine": "使用 LINE 繼續",
+    "orDivider": "或",
     "errors": {
       "missingFields": "請輸入 email 與密碼。",
       "passwordTooShort": "密碼長度需至少 8 個字元。",
@@ -286,6 +306,15 @@
       "operationNotAllowed": "email/密碼登入尚未啟用，請聯絡客服。",
       "requiresRecentLogin": "基於安全考量，請重新登入後再執行此操作。",
       "notSignedIn": "您尚未登入。",
+      "signInCancelled": "已取消登入。",
+      "googleMisconfigured": "此版本未設定 Google 登入。",
+      "googleIosDisabled": "Google 登入尚未在 iOS 上提供。",
+      "lineMisconfigured": "此版本未設定 LINE 登入。",
+      "lineIosDisabled": "LINE 登入尚未在 iOS 上提供。",
+      "lineDisabled": "伺服器尚未啟用 LINE 登入，請改用 email 或 Google。",
+      "lineInvalidCode": "LINE 拒絕了這次登入，請再試一次。",
+      "lineUpstream": "目前無法連線到 LINE，請確認網路後重試。",
+      "accountExistsDifferentCredential": "此 email 已以其他登入方式註冊。",
       "generic": "發生未預期錯誤，請稍後再試。"
     }
   }

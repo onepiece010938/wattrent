@@ -173,6 +173,32 @@ func (f *fakeUserStore) Get(ctx context.Context, uid string) (*models.User, erro
 	return nil, nil
 }
 
+type fakeAccountDeleter struct {
+	deleteFn func(ctx context.Context, uid string) error
+	clearFn  func(ctx context.Context, uid string) error
+	calls    int
+	clears   int
+	lastUID  string
+}
+
+func (f *fakeAccountDeleter) DeleteAccount(ctx context.Context, uid string) error {
+	f.calls++
+	f.lastUID = uid
+	if f.deleteFn != nil {
+		return f.deleteFn(ctx, uid)
+	}
+	return nil
+}
+
+func (f *fakeAccountDeleter) ClearData(ctx context.Context, uid string) error {
+	f.clears++
+	f.lastUID = uid
+	if f.clearFn != nil {
+		return f.clearFn(ctx, uid)
+	}
+	return nil
+}
+
 // ---- router builder -------------------------------------------------------
 
 // testEnv bundles the fakes used by a single test plus the router.
@@ -183,7 +209,9 @@ type testEnv struct {
 	ocr      *fakeOCRRunner
 	uploads  *fakeUploadSigner
 	users    *fakeUserStore
+	account  *fakeAccountDeleter
 	download *fakeDownloadSigner
+	line     *fakeLineExchanger
 }
 
 // newTestEnv wires a router with the same middleware chain as main.go but
@@ -198,7 +226,9 @@ func newTestEnv(t *testing.T) *testEnv {
 		ocr:      &fakeOCRRunner{},
 		uploads:  &fakeUploadSigner{},
 		users:    &fakeUserStore{},
+		account:  &fakeAccountDeleter{},
 		download: &fakeDownloadSigner{},
+		line:     &fakeLineExchanger{},
 	}
 
 	cfg := &config.Config{
@@ -222,13 +252,20 @@ func newTestEnv(t *testing.T) *testEnv {
 	ocrH := NewOCRHandler(env.ocr)
 	uploadH := NewUploadHandler(env.uploads)
 	userH := NewUserHandler(env.users)
+	accountH := NewAccountHandler(env.account)
+	lineH := NewLINEAuthHandler(env.line)
 
 	api := r.Group("/api/v1")
+	// LINE token exchange lives OUTSIDE the authed group because it is the
+	// flow that mints the very Bearer token everything else requires.
+	api.POST("/auth/line/exchange", lineH.Exchange)
 	authed := api.Group("")
 	authed.Use(middleware.Auth(nil, cfg)) // nil firebase client is fine because AuthBypass=true
 	{
 		authed.GET("/users/me", userH.GetMe)
 		authed.POST("/users/me", userH.UpsertMe)
+		authed.DELETE("/users/me", accountH.DeleteMe)
+		authed.DELETE("/users/me/data", accountH.ClearData)
 		authed.POST("/ocr/process", ocrH.Process)
 		authed.POST("/uploads/sign", uploadH.Sign)
 		bills := authed.Group("/bills")

@@ -150,6 +150,45 @@ func TestLoadRejectsUnknownAIBackend(t *testing.T) {
 	}
 }
 
+// TestLoadLINEEnvVars confirms the new LINE Login configuration fields are
+// surfaced verbatim from the environment (no validation, no munging) so the
+// services layer can decide what to do with the values.
+func TestLoadLINEEnvVars(t *testing.T) {
+	resetEnv(t)
+	t.Setenv("AUTH_BYPASS", "true")
+	t.Setenv("LINE_CHANNEL_ID", "1234567890")
+	t.Setenv("LINE_CHANNEL_SECRET", "shhh-channel-secret")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.LINEChannelID != "1234567890" {
+		t.Errorf("LINEChannelID = %q, want 1234567890", cfg.LINEChannelID)
+	}
+	if cfg.LINEChannelSecret != "shhh-channel-secret" {
+		t.Errorf("LINEChannelSecret = %q, want shhh-channel-secret", cfg.LINEChannelSecret)
+	}
+}
+
+func TestLoadLINEEnvVars_DefaultEmpty(t *testing.T) {
+	resetEnv(t)
+	t.Setenv("AUTH_BYPASS", "true")
+	// LINE_CHANNEL_ID / LINE_CHANNEL_SECRET not set -> empty strings, which
+	// the services layer treats as "LINE sign-in disabled".
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.LINEChannelID != "" {
+		t.Errorf("LINEChannelID = %q, want empty", cfg.LINEChannelID)
+	}
+	if cfg.LINEChannelSecret != "" {
+		t.Errorf("LINEChannelSecret = %q, want empty", cfg.LINEChannelSecret)
+	}
+}
+
 // resetEnv unsets every variable Load consults so each test starts from a
 // known state regardless of what the host shell has set.
 func resetEnv(t *testing.T) {
@@ -159,6 +198,7 @@ func resetEnv(t *testing.T) {
 		"ALLOWED_ORIGINS", "AUTH_BYPASS", "AUTH_BYPASS_UID", "AI_BACKEND",
 		"GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_MODEL", "VERTEX_MODEL",
 		"SENTRY_DSN",
+		"LINE_CHANNEL_ID", "LINE_CHANNEL_SECRET",
 	}
 	for _, v := range vars {
 		t.Setenv(v, "")

@@ -76,6 +76,12 @@ func (s *SettingsService) Patch(ctx context.Context, uid string, req *models.Upd
 	if req.PaymentMethod != nil {
 		updates = append(updates, firestore.Update{Path: "paymentMethod", Value: *req.PaymentMethod})
 	}
+	if req.MessageTemplate != nil {
+		updates = append(updates, firestore.Update{Path: "messageTemplate", Value: *req.MessageTemplate})
+	}
+	if req.SetupCompleted != nil {
+		updates = append(updates, firestore.Update{Path: "setupCompleted", Value: *req.SetupCompleted})
+	}
 	if req.Language != nil {
 		updates = append(updates, firestore.Update{Path: "language", Value: *req.Language})
 	}
@@ -123,6 +129,12 @@ func (s *SettingsService) applyPatchToStruct(dst *models.UserSettings, req *mode
 	}
 	if req.PaymentMethod != nil {
 		dst.PaymentMethod = *req.PaymentMethod
+	}
+	if req.MessageTemplate != nil {
+		dst.MessageTemplate = *req.MessageTemplate
+	}
+	if req.SetupCompleted != nil {
+		dst.SetupCompleted = *req.SetupCompleted
 	}
 	if req.Language != nil {
 		dst.Language = *req.Language

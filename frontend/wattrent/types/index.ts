@@ -50,6 +50,8 @@ export interface UserSettings {
   previousMeterReading: number;
   landlordName?: string;
   paymentMethod?: string;
+  messageTemplate?: string;
+  setupCompleted?: boolean;
   language?: string;
   notificationsEnabled?: boolean;
   autoBackup?: boolean;

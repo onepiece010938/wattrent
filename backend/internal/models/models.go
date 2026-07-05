@@ -22,12 +22,15 @@ const (
 // User is the user document (document ID = Firebase Auth uid).
 // Path: /users/{uid}
 type User struct {
-	ID          string    `firestore:"-"             json:"id"`
-	Email       string    `firestore:"email"          json:"email"`
-	DisplayName string    `firestore:"displayName"    json:"displayName,omitempty"`
-	PhotoURL    string    `firestore:"photoUrl"       json:"photoUrl,omitempty"`
-	CreatedAt   time.Time `firestore:"createdAt"      json:"createdAt"`
-	UpdatedAt   time.Time `firestore:"updatedAt"      json:"updatedAt"`
+	ID          string `firestore:"-"             json:"id"`
+	Email       string `firestore:"email"          json:"email"`
+	DisplayName string `firestore:"displayName"    json:"displayName,omitempty"`
+	PhotoURL    string `firestore:"photoUrl"       json:"photoUrl,omitempty"`
+	// AdFree hides all ads for this user (paying customers / owner accounts).
+	// Set manually in Firestore for now; never written by the client.
+	AdFree    bool      `firestore:"adFree"         json:"adFree"`
+	CreatedAt time.Time `firestore:"createdAt"      json:"createdAt"`
+	UpdatedAt time.Time `firestore:"updatedAt"      json:"updatedAt"`
 }
 
 // UserSettings is the user settings document.
@@ -38,10 +41,17 @@ type UserSettings struct {
 	PreviousMeterReading   float64       `firestore:"previousMeterReading"   json:"previousMeterReading"`
 	LandlordName           string        `firestore:"landlordName"           json:"landlordName,omitempty"`
 	PaymentMethod          PaymentMethod `firestore:"paymentMethod"          json:"paymentMethod,omitempty"`
-	Language               string        `firestore:"language"               json:"language,omitempty"`
-	NotificationsEnabled   bool          `firestore:"notificationsEnabled"   json:"notificationsEnabled"`
-	AutoBackup             bool          `firestore:"autoBackup"             json:"autoBackup"`
-	UpdatedAt              time.Time     `firestore:"updatedAt"              json:"updatedAt"`
+	// MessageTemplate is the user-editable share text. Empty -> the frontend
+	// falls back to its localized default. Supports {period} {meterReading}
+	// {usage} {rate} {electricityCost} {rent} {totalAmount} placeholders.
+	MessageTemplate string `firestore:"messageTemplate" json:"messageTemplate,omitempty"`
+	// SetupCompleted flips to true once the user saves their defaults the first
+	// time; the app uses it to gate the capture flow behind onboarding.
+	SetupCompleted       bool      `firestore:"setupCompleted"       json:"setupCompleted"`
+	Language             string    `firestore:"language"             json:"language,omitempty"`
+	NotificationsEnabled bool      `firestore:"notificationsEnabled" json:"notificationsEnabled"`
+	AutoBackup           bool      `firestore:"autoBackup"           json:"autoBackup"`
+	UpdatedAt            time.Time `firestore:"updatedAt"            json:"updatedAt"`
 }
 
 // DefaultUserSettings is the default value returned the first time a user reads settings.
@@ -94,14 +104,17 @@ type Bill struct {
 // CreateBillRequest is the request body for creating a bill.
 //
 // Notes:
-//   - The backend computes usage from settings.PreviousMeterReading; the frontend does not need to send it
+//   - PreviousReading is the meter reading the previous period ended on. The
+//     frontend sends the value shown (and editable) on the capture screen. When
+//     omitted (nil), the backend falls back to settings.PreviousMeterReading.
 //   - period format: YYYY-MM
 type CreateBillRequest struct {
-	MeterReading    float64 `json:"meterReading"     binding:"required,gte=0"`
-	ElectricityRate float64 `json:"electricityRate"  binding:"required,gt=0"`
-	Rent            float64 `json:"rent"             binding:"required,gte=0"`
-	Period          string  `json:"period"           binding:"required,len=7"` // YYYY-MM
-	ImageURL        string  `json:"imageUrl"`
+	MeterReading    float64  `json:"meterReading"     binding:"required,gte=0"`
+	PreviousReading *float64 `json:"previousReading"  binding:"omitempty,gte=0"`
+	ElectricityRate float64  `json:"electricityRate"  binding:"required,gt=0"`
+	Rent            float64  `json:"rent"             binding:"required,gte=0"`
+	Period          string   `json:"period"           binding:"required,len=7"` // YYYY-MM
+	ImageURL        string   `json:"imageUrl"`
 }
 
 // UpdateBillPaymentRequest marks a bill as paid or unpaid.
@@ -117,6 +130,8 @@ type UpdateSettingsRequest struct {
 	PreviousMeterReading   *float64       `json:"previousMeterReading"`
 	LandlordName           *string        `json:"landlordName"`
 	PaymentMethod          *PaymentMethod `json:"paymentMethod"`
+	MessageTemplate        *string        `json:"messageTemplate"`
+	SetupCompleted         *bool          `json:"setupCompleted"`
 	Language               *string        `json:"language"`
 	NotificationsEnabled   *bool          `json:"notificationsEnabled"`
 	AutoBackup             *bool          `json:"autoBackup"`

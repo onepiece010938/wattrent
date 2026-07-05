@@ -13,11 +13,26 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import telemetry from '@/lib/telemetry';
+import { getDevMode, isDevModeAvailable } from '@/lib/devMode';
 
 // react-native-google-mobile-ads only runs on iOS / Android native. On Web
 // (and inside Jest where the native module isn't wired up) we bail out early
 // and let the rest of the app degrade gracefully.
 const SUPPORTED = Platform.OS === 'ios' || Platform.OS === 'android';
+
+// Per-user ad suppression. Set from the signed-in user's `adFree` entitlement
+// (paying customers / owner accounts). Combined with the dev-mode "disableAds"
+// toggle so the ad-free experience can be previewed without a paid account.
+let userAdFree = false;
+
+export function setUserAdFree(value: boolean): void {
+  userAdFree = value;
+}
+
+function adsSuppressed(): boolean {
+  if (userAdFree) return true;
+  return isDevModeAvailable() && getDevMode().disableAds;
+}
 
 interface AdsConfig {
   androidBanner: string | null;
@@ -49,6 +64,7 @@ function readConfig(): AdsConfig {
  */
 export function getBannerAdUnitId(): string | null {
   if (!SUPPORTED) return null;
+  if (adsSuppressed()) return null;
   // Lazy-require so Web / Jest never touch the native module.
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { TestIds } = require('react-native-google-mobile-ads');
@@ -62,7 +78,7 @@ export function getBannerAdUnitId(): string | null {
  * True when banner ads should actually render. False on Web / Jest.
  */
 export function areAdsAvailable(): boolean {
-  return SUPPORTED;
+  return SUPPORTED && !adsSuppressed();
 }
 
 let initPromise: Promise<void> | null = null;
@@ -129,6 +145,7 @@ export async function initAds(): Promise<void> {
  */
 export function getInterstitialAdUnitId(): string | null {
   if (!SUPPORTED) return null;
+  if (adsSuppressed()) return null;
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { TestIds } = require('react-native-google-mobile-ads');
   if (__DEV__) return TestIds.INTERSTITIAL as string;
@@ -162,6 +179,7 @@ const INTERSTITIAL_COOLDOWN_MS = 60_000;
  */
 export async function prefetchInterstitial(): Promise<void> {
   if (!SUPPORTED) return;
+  if (adsSuppressed()) return;
   if (interstitialLoaded || interstitialLoading) return;
   // Ensure the SDK is initialised before requesting an ad.
   await initAds();
@@ -206,6 +224,7 @@ export async function prefetchInterstitial(): Promise<void> {
  */
 export async function maybeShowInterstitialAd(): Promise<void> {
   if (!SUPPORTED) return;
+  if (adsSuppressed()) return;
   if (!interstitialLoaded || !interstitialInstance) return;
   const now = Date.now();
   if (now - lastInterstitialShownAt < INTERSTITIAL_COOLDOWN_MS) return;

@@ -19,6 +19,7 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useToast } from '@/components/Toast';
 import { formatPeriod } from '~/lib/period';
+import { applyBillTemplate, formatAmount, formatMoney } from '~/lib/format';
 import AdBanner from '@/components/AdBanner';
 
 export default function BillDetailScreen() {
@@ -97,13 +98,19 @@ export default function BillDetailScreen() {
 
   const shareMessage = async () => {
     if (!bill) return;
-    const message =
-      bill.message ||
-      t('history.billMessage', {
-        rent: bill.rent,
-        electricityCost: bill.electricityCost,
-        totalAmount: bill.totalAmount,
-      });
+    const fallback = t('history.billMessage', {
+      rent: bill.rent,
+      electricityCost: bill.electricityCost,
+      totalAmount: bill.totalAmount,
+    });
+    let message = fallback;
+    try {
+      const settings = await settingsService.getSettings();
+      const tmpl = settings.messageTemplate?.trim();
+      if (tmpl) message = applyBillTemplate(tmpl, bill, currentLanguage);
+    } catch {
+      // fall back to the localized default message
+    }
     try {
       await Share.share({ message });
     } catch {
@@ -159,7 +166,7 @@ export default function BillDetailScreen() {
               {formatPeriod(bill.period, currentLanguage)}
             </Text>
             <Text className="text-3xl font-bold text-primary mt-1">
-              {t('history.currency')}{bill.totalAmount}
+              {formatMoney(bill.totalAmount, currentLanguage)}
             </Text>
             <View className="mt-3 flex-row items-center">
               {bill.paidAt ? (
@@ -212,19 +219,19 @@ export default function BillDetailScreen() {
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">{t('history.meterReading')}</Text>
                 <Text className="text-sm text-card-foreground font-medium">
-                  {bill.meterReading} {t('history.unit')}
+                  {formatAmount(bill.meterReading)} {t('history.unit')}
                 </Text>
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">{t('history.electricityUsage')}</Text>
                 <Text className="text-sm text-card-foreground font-medium">
-                  {bill.electricityUsage} {t('history.unit')}
+                  {formatAmount(bill.electricityUsage)} {t('history.unit')}
                 </Text>
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">{t('history.electricityRate')}</Text>
                 <Text className="text-sm text-card-foreground font-medium">
-                  {t('history.currency')}{bill.electricityRate}/{t('history.unit')}
+                  {formatMoney(bill.electricityRate, currentLanguage)}/{t('history.unit')}
                 </Text>
               </View>
               <View className="flex-row justify-between">
@@ -232,13 +239,13 @@ export default function BillDetailScreen() {
                   {t('history.electricityCalculation')}
                 </Text>
                 <Text className="text-sm text-card-foreground font-medium">
-                  {t('history.currency')}{bill.electricityCost}
+                  {formatMoney(bill.electricityCost, currentLanguage)}
                 </Text>
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">{t('history.rent')}</Text>
                 <Text className="text-sm text-card-foreground font-medium">
-                  {t('history.currency')}{bill.rent}
+                  {formatMoney(bill.rent, currentLanguage)}
                 </Text>
               </View>
               <View className="border-t border-border pt-2 mt-1 flex-row justify-between">
@@ -246,7 +253,7 @@ export default function BillDetailScreen() {
                   {t('history.totalAmount')}
                 </Text>
                 <Text className="text-lg font-bold text-primary">
-                  {t('history.currency')}{bill.totalAmount}
+                  {formatMoney(bill.totalAmount, currentLanguage)}
                 </Text>
               </View>
             </View>

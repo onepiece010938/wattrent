@@ -26,6 +26,15 @@ export default {
     plugins: [
       "expo-router",
       "expo-localization",
+      // expo-web-browser config plugin — registers the in-app browser used by
+      // expo-auth-session (LINE OAuth flow). No options needed.
+      "expo-web-browser",
+      // Native Google Sign-In (@react-native-google-signin/google-signin).
+      // Android authenticates via Google Play Services using the Web client ID
+      // passed to GoogleSignin.configure() in lib/googleAuth.ts, so no
+      // google-services.json is needed here. When iOS Google sign-in ships, add
+      // [ "@react-native-google-signin/google-signin", { iosUrlScheme: "..." } ].
+      "@react-native-google-signin/google-signin",
       [
         "expo-camera",
         {
@@ -201,6 +210,22 @@ export default {
           process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID ||
           "ca-app-pub-1948624676245995/2107640818",
         iosInterstitial: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS || null
+      },
+      // Google OAuth — used by lib/googleAuth.ts. webClientId is the OAuth 2.0
+      // Web client ID created in Google Cloud Console. Required for native
+      // (iOS / Android) sign-in via expo-auth-session; web uses Firebase's
+      // signInWithPopup which reads it from the Firebase project itself.
+      // Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID as an EAS secret.
+      google: {
+        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || null
+      },
+      // LINE Login — used by lib/lineAuth.ts. channelId is the LINE Login
+      // channel's "Channel ID" (the public client_id; safe to ship in the
+      // bundle). The channel secret stays server-side only, in GCP Secret
+      // Manager and injected into Cloud Run via Terraform. Set
+      // EXPO_PUBLIC_LINE_CHANNEL_ID as an EAS secret.
+      line: {
+        channelId: process.env.EXPO_PUBLIC_LINE_CHANNEL_ID || null
       },
       eas: {
         projectId: "dc9a5284-10b5-47da-bc1c-053c36d08564"

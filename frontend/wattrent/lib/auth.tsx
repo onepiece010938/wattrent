@@ -33,12 +33,12 @@ import {
   sendPasswordResetEmail,
   signOut as fbSignOut,
   updateProfile as fbUpdateProfile,
-  deleteUser as fbDeleteUser,
 } from 'firebase/auth';
 
 import { getFirebaseAuth, isFirebaseConfigured } from '@/lib/firebase';
 import apiService from '@/services/api';
 import { setAuthTokenProvider as setSettingsAuthTokenProvider } from '@/services/settings';
+import { setUserAdFree } from '@/lib/ads';
 import telemetry from '@/lib/telemetry';
 
 export type AuthMode = 'firebase' | 'bypass' | 'disabled';
@@ -131,12 +131,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             displayName: u.displayName ?? '',
             photoURL: u.photoURL ?? '',
           });
+          // Fetch the ad-free entitlement (paying customers / owner accounts)
+          // and suppress ads accordingly. Non-fatal; defaults to showing ads.
+          try {
+            const me = await apiService.getMe();
+            setUserAdFree(!!me?.adFree);
+          } catch {
+            setUserAdFree(false);
+          }
         } catch (err) {
           telemetry.captureException(err, { scope: 'auth.bootstrapUser' });
         }
       } else {
         setUser(null);
         setStatus('signedOut');
+        setUserAdFree(false);
         telemetry.setUser(null);
       }
     });
@@ -174,8 +183,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [auth]);
 
   const deleteAccount = useCallback(async () => {
-    if (!auth?.currentUser) throw new Error('auth.not_signed_in');
-    await fbDeleteUser(auth.currentUser);
+    // The backend owns the cascade delete: it removes the user's Firestore
+    // data, meter photos, and the Firebase Auth login itself (via the Admin
+    // SDK, which — unlike client-side deleteUser — needs no recent re-auth).
+    // Run it while we still hold a valid ID token, then clear the local
+    // session so onAuthStateChanged routes back to the sign-in screen.
+    await apiService.deleteAccount();
+    if (auth) {
+      await fbSignOut(auth);
+    }
   }, [auth]);
 
   const value = useMemo<AuthContextValue>(

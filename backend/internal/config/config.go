@@ -51,24 +51,34 @@ type Config struct {
 
 	// SentryDSN: optional; empty string means Sentry is disabled
 	SentryDSN string
+
+	// LINEChannelID is the LINE Login channel ID. Empty disables the LINE
+	// sign-in endpoint (POST /api/v1/auth/line/exchange returns 503).
+	LINEChannelID string
+
+	// LINEChannelSecret is the matching channel secret. Treat as a secret and
+	// inject via GCP Secret Manager in production.
+	LINEChannelSecret string
 }
 
 // Load reads environment variables and returns a Config.
 // Returns an error so main can fatal out when a required field is missing.
 func Load() (*Config, error) {
 	cfg := &Config{
-		Env:            envOr("APP_ENV", "dev"),
-		GCPProjectID:   os.Getenv("GCP_PROJECT_ID"),
-		GCPRegion:      envOr("GCP_REGION", "asia-east1"),
-		MetersBucket:   os.Getenv("METERS_BUCKET"),
-		Port:           envOr("PORT", "8080"),
-		AllowedOrigins: splitAndTrim(envOr("ALLOWED_ORIGINS", "*")),
-		AuthBypass:     envOr("AUTH_BYPASS", "false") == "true",
-		AuthBypassUID:  envOr("AUTH_BYPASS_UID", "dev-user"),
-		AIBackend:      strings.ToLower(envOr("AI_BACKEND", "gemini")),
-		GeminiAPIKey:   firstNonEmpty(os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY")),
-		GeminiModel:    firstNonEmpty(os.Getenv("GEMINI_MODEL"), os.Getenv("VERTEX_MODEL"), "gemini-2.5-flash-lite"),
-		SentryDSN:      os.Getenv("SENTRY_DSN"),
+		Env:               envOr("APP_ENV", "dev"),
+		GCPProjectID:      os.Getenv("GCP_PROJECT_ID"),
+		GCPRegion:         envOr("GCP_REGION", "asia-east1"),
+		MetersBucket:      os.Getenv("METERS_BUCKET"),
+		Port:              envOr("PORT", "8080"),
+		AllowedOrigins:    splitAndTrim(envOr("ALLOWED_ORIGINS", "*")),
+		AuthBypass:        envOr("AUTH_BYPASS", "false") == "true",
+		AuthBypassUID:     envOr("AUTH_BYPASS_UID", "dev-user"),
+		AIBackend:         strings.ToLower(envOr("AI_BACKEND", "gemini")),
+		GeminiAPIKey:      firstNonEmpty(os.Getenv("GEMINI_API_KEY"), os.Getenv("GOOGLE_API_KEY")),
+		GeminiModel:       firstNonEmpty(os.Getenv("GEMINI_MODEL"), os.Getenv("VERTEX_MODEL"), "gemini-2.5-flash-lite"),
+		SentryDSN:         os.Getenv("SENTRY_DSN"),
+		LINEChannelID:     os.Getenv("LINE_CHANNEL_ID"),
+		LINEChannelSecret: os.Getenv("LINE_CHANNEL_SECRET"),
 	}
 
 	// AI backend must be either gemini or vertex

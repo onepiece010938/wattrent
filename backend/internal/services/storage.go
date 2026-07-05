@@ -2,11 +2,13 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 // StorageService handles meter photos: signed upload / signed download.
@@ -109,6 +111,40 @@ func (s *StorageService) DownloadObject(ctx context.Context, gcsPath string) (da
 		return nil, "", fmt.Errorf("read %s: %w", gcsPath, err)
 	}
 	return data, contentType, nil
+}
+
+// DeleteUserObjects deletes every object stored under a user's prefix
+// (users/{uid}/...). Called when a user deletes their account. It keeps going
+// on individual delete failures and returns the first error encountered, so a
+// retry can converge (missing objects are ignored).
+func (s *StorageService) DeleteUserObjects(ctx context.Context, uid string) error {
+	if uid == "" {
+		return fmt.Errorf("uid is required")
+	}
+
+	prefix := fmt.Sprintf("users/%s/", uid)
+	bucket := s.client.Bucket(s.bucketName)
+	it := bucket.Objects(ctx, &storage.Query{Prefix: prefix})
+
+	var firstErr error
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			break
+		}
+		if err != nil {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("list objects %s: %w", prefix, err)
+			}
+			break
+		}
+		if err := bucket.Object(attrs.Name).Delete(ctx); err != nil && !errors.Is(err, storage.ErrObjectNotExist) {
+			if firstErr == nil {
+				firstErr = fmt.Errorf("delete %s: %w", attrs.Name, err)
+			}
+		}
+	}
+	return firstErr
 }
 
 // --------------- helpers ---------------
