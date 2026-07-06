@@ -18,6 +18,7 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage, getCurrentLanguage } from '@/lib/i18n';
+import { getDefaultTemplate, getInsertTokens } from '@/lib/billMessage';
 import {
   getDevMode,
   setDevMode,
@@ -100,6 +101,23 @@ export default function SettingsScreen() {
     landlordName: '',
     paymentMethod: t('paymentMethods.bankTransfer'),
   });
+
+  // Share-template editor: track the caret so tapping a token inserts it there.
+  const templateSelRef = useRef({ start: 0, end: 0 });
+  const [templateSel, setTemplateSel] = useState<{ start: number; end: number } | undefined>(undefined);
+  const insertTemplateToken = (token: string) => {
+    const cur = settings.messageTemplate ?? '';
+    const start = Math.min(templateSelRef.current.start, cur.length);
+    const end = Math.min(templateSelRef.current.end, cur.length);
+    const next = cur.slice(0, start) + token + cur.slice(end);
+    setSettings({ ...settings, messageTemplate: next });
+    const pos = start + token.length;
+    templateSelRef.current = { start: pos, end: pos };
+    // Briefly pin the caret after the inserted token, then release control so
+    // normal typing isn't affected by a fixed selection prop.
+    setTemplateSel({ start: pos, end: pos });
+    setTimeout(() => setTemplateSel(undefined), 50);
+  };
   
   // Independent string state for the electricity rate
   const [electricityRateText, setElectricityRateText] = useState('4.5');
@@ -313,10 +331,16 @@ export default function SettingsScreen() {
       const latestSavedSettings = await settingsService.getSettings();
       console.log('latest saved settings from backend:', latestSavedSettings);
 
+      const restored = {
+        ...latestSavedSettings,
+        messageTemplate: latestSavedSettings.messageTemplate?.trim()
+          ? latestSavedSettings.messageTemplate
+          : getDefaultTemplate(currentLanguage),
+      };
       // Restore to whatever the backend returned
-      setSettings({...latestSavedSettings});
-      setElectricityRateText(latestSavedSettings.defaultElectricityRate.toString());
-      setInitialSettings({...latestSavedSettings});
+      setSettings({ ...restored });
+      setElectricityRateText(restored.defaultElectricityRate.toString());
+      setInitialSettings({ ...restored });
 
       // Restore the language setting
       setSelectedLanguage(initialLanguage);
@@ -386,9 +410,18 @@ export default function SettingsScreen() {
       const loadedSettings = await settingsService.getSettings();
       console.log('loaded settings:', loadedSettings);
 
-      setSettings(loadedSettings);
-      setElectricityRateText(loadedSettings.defaultElectricityRate.toString());
-      setInitialSettings({...loadedSettings});
+      // Pre-fill the (editable) default template when the user hasn't set one
+      // yet, keeping the input and the "initial" snapshot equal so it doesn't
+      // look like an unsaved change.
+      const withTemplate = {
+        ...loadedSettings,
+        messageTemplate: loadedSettings.messageTemplate?.trim()
+          ? loadedSettings.messageTemplate
+          : getDefaultTemplate(currentLanguage),
+      };
+      setSettings(withTemplate);
+      setElectricityRateText(withTemplate.defaultElectricityRate.toString());
+      setInitialSettings({ ...withTemplate });
 
       // Initialise the language
       setSelectedLanguage(currentLanguage);
@@ -687,13 +720,28 @@ export default function SettingsScreen() {
                   onChangeText={(value) =>
                     setSettings({ ...settings, messageTemplate: value })
                   }
+                  selection={templateSel}
+                  onSelectionChange={(e) => {
+                    templateSelRef.current = e.nativeEvent.selection;
+                  }}
                   multiline
-                  numberOfLines={4}
+                  numberOfLines={7}
                   textAlignVertical="top"
                   placeholder={t('placeholders.messageTemplate')}
                   placeholderTextColor="#9CA3AF"
                 />
-                <Text className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <View className="flex-row flex-wrap gap-2 mt-2">
+                  {getInsertTokens(currentLanguage).map((it) => (
+                    <TouchableOpacity
+                      key={it.key}
+                      onPress={() => insertTemplateToken(it.token)}
+                      className="px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                    >
+                      <Text className="text-xs text-gray-700 dark:text-gray-200">{it.token}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   {t('settings.messageTemplateHint')}
                 </Text>
               </View>

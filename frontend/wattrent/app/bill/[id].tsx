@@ -19,7 +19,8 @@ import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useToast } from '@/components/Toast';
 import { formatPeriod } from '~/lib/period';
-import { applyBillTemplate, formatAmount, formatMoney } from '~/lib/format';
+import { formatAmount, formatMoney } from '~/lib/format';
+import { getDefaultTemplate, renderBillMessage } from '~/lib/billMessage';
 import AdBanner from '@/components/AdBanner';
 
 export default function BillDetailScreen() {
@@ -98,19 +99,27 @@ export default function BillDetailScreen() {
 
   const shareMessage = async () => {
     if (!bill) return;
-    const fallback = t('history.billMessage', {
-      rent: bill.rent,
-      electricityCost: bill.electricityCost,
-      totalAmount: bill.totalAmount,
-    });
-    let message = fallback;
+    let template = getDefaultTemplate(currentLanguage);
+    let landlordName = '';
     try {
       const settings = await settingsService.getSettings();
-      const tmpl = settings.messageTemplate?.trim();
-      if (tmpl) message = applyBillTemplate(tmpl, bill, currentLanguage);
+      const saved = settings.messageTemplate?.trim();
+      if (saved) template = saved;
+      landlordName = settings.landlordName ?? '';
     } catch {
-      // fall back to the localized default message
+      // fall back to the default template
     }
+    const message = renderBillMessage(template, {
+      landlordName,
+      period: bill.period,
+      meterReading: bill.meterReading,
+      previousReading: bill.previousReading,
+      electricityUsage: bill.electricityUsage,
+      electricityRate: bill.electricityRate,
+      electricityCost: bill.electricityCost,
+      rent: bill.rent,
+      totalAmount: bill.totalAmount,
+    });
     try {
       await Share.share({ message });
     } catch {

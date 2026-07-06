@@ -113,7 +113,7 @@
     "paymentMethod": "Payment Method",
     "selectPaymentMethod": "Select Payment Method",
     "messageTemplate": "Share message template",
-    "messageTemplateHint": "Placeholders: {period} {meterReading} {usage} {rate} {electricityCost} {rent} {totalAmount}. Leave empty to use the default message.",
+    "messageTemplateHint": "Tap a tag below to insert it — tags become this bill's numbers when you share.",
     "notifications": "Notification Settings",
     "paymentReminder": "Payment Reminder",
     "autoBackup": "Auto Backup",
@@ -172,7 +172,7 @@
     "rent": "8000",
     "meterReading": "0",
     "landlordName": "John Doe",
-    "messageTemplate": "This month's electricity is {electricityCost}, rent {rent}, total {totalAmount}. Thank you!"
+    "messageTemplate": "Your message to the landlord…"
   },
   "languages": {
     "zh-TW": "Traditional Chinese",

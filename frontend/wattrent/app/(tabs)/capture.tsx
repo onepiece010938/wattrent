@@ -77,7 +77,10 @@ export default function CaptureScreen() {
     React.useCallback(() => {
       setIsScreenFocused(true);
       setIsCameraReady(false);
-      
+      // Refresh settings on focus so newly-saved defaults (setupCompleted, rate,
+      // rent, previous reading) are picked up without remounting the tab.
+      loadSettings();
+
       // Small delay so the camera can re-initialise
       const timer = setTimeout(() => {
         setIsCameraReady(true);

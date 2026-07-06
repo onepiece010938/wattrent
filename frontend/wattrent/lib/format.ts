@@ -22,36 +22,3 @@ export function formatMoney(amount: number, language?: string): string {
   if (language && language.startsWith('zh')) return `${num} 元`;
   return `$${num}`;
 }
-
-/** Bill fields a share-message template can reference. */
-export interface BillTemplateData {
-  period: string;
-  meterReading: number;
-  electricityUsage: number;
-  electricityRate: number;
-  electricityCost: number;
-  rent: number;
-  totalAmount: number;
-}
-
-/**
- * Substitute {placeholder} tokens in a user-defined share template with the
- * bill's values. Unknown tokens are left untouched. Supported placeholders:
- * {period} {meterReading} {usage} {rate} {electricityCost} {rent} {totalAmount}.
- */
-export function applyBillTemplate(
-  template: string,
-  bill: BillTemplateData,
-  language?: string,
-): string {
-  const map: Record<string, string> = {
-    period: bill.period,
-    meterReading: formatAmount(bill.meterReading),
-    usage: formatAmount(bill.electricityUsage),
-    rate: formatMoney(bill.electricityRate, language),
-    electricityCost: formatMoney(bill.electricityCost, language),
-    rent: formatMoney(bill.rent, language),
-    totalAmount: formatMoney(bill.totalAmount, language),
-  };
-  return template.replace(/\{(\w+)\}/g, (m, key) => (key in map ? map[key] : m));
-}

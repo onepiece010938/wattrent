@@ -113,7 +113,7 @@
     "paymentMethod": "付款方式",
     "selectPaymentMethod": "請選擇付款方式",
     "messageTemplate": "分享訊息範本",
-    "messageTemplateHint": "可用變數：{period} {meterReading} {usage} {rate} {electricityCost} {rent} {totalAmount}。留空則使用預設訊息。",
+    "messageTemplateHint": "點下方標籤即可插入，分享時會自動換成該筆帳單的數字。",
     "notifications": "通知設定",
     "paymentReminder": "繳費提醒",
     "autoBackup": "自動備份",
@@ -172,7 +172,7 @@
     "rent": "8000",
     "meterReading": "0",
     "landlordName": "王房東",
-    "messageTemplate": "本月電費 {electricityCost}，房租 {rent}，合計 {totalAmount}，麻煩您了，謝謝！"
+    "messageTemplate": "給房東的訊息…"
   },
   "languages": {
     "zh-TW": "繁體中文",
