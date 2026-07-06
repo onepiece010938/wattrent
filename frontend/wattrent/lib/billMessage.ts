@@ -1,8 +1,8 @@
-// Share-message template with #hashtag tokens.
+// Share-message template with {{token}} placeholders.
 //
-// The user edits a plain-text template; tokens like #房租 / #rent expand to the
-// bill's values when shared. Each token has both a Chinese and an English form,
-// so a template written in one language still renders correctly in the other.
+// The user edits a plain-text template; tokens like {{房租}} / {{rent}} expand to
+// the bill's values when shared. Each token has both a Chinese and an English
+// form, so a template written in one language still renders in the other.
 //
 // Values are plain numbers (no currency symbol, no thousands separator) so they
 // read naturally inside the user's own sentence, e.g. "737 +房租16000=16737".
@@ -30,17 +30,16 @@ interface TokenDef {
   value: (b: BillMessageData) => string;
 }
 
-// Order matters for the insert-button row. Longest hashtags are matched first at
-// render time (see renderBillMessage) so "#電費單價" wins over "#電費".
+// Longest tokens are matched first at render time (see renderBillMessage).
 const TOKENS: TokenDef[] = [
-  { key: 'landlord', zh: '#房東', en: '#landlord', value: (b) => b.landlordName ?? '' },
-  { key: 'current', zh: '#這次電表', en: '#current', value: (b) => num(b.meterReading) },
-  { key: 'previous', zh: '#上次電表', en: '#previous', value: (b) => num(b.previousReading) },
-  { key: 'usage', zh: '#用電度數', en: '#usage', value: (b) => num(b.electricityUsage) },
-  { key: 'rate', zh: '#電費單價', en: '#rate', value: (b) => num(b.electricityRate) },
-  { key: 'bill', zh: '#電費', en: '#bill', value: (b) => num(b.electricityCost) },
-  { key: 'rent', zh: '#房租', en: '#rent', value: (b) => num(b.rent) },
-  { key: 'total', zh: '#合計', en: '#total', value: (b) => num(b.totalAmount) },
+  { key: 'landlord', zh: '{{房東}}', en: '{{landlord}}', value: (b) => b.landlordName ?? '' },
+  { key: 'current', zh: '{{這次電表}}', en: '{{current}}', value: (b) => num(b.meterReading) },
+  { key: 'previous', zh: '{{上次電表}}', en: '{{previous}}', value: (b) => num(b.previousReading) },
+  { key: 'usage', zh: '{{用電度數}}', en: '{{usage}}', value: (b) => num(b.electricityUsage) },
+  { key: 'rate', zh: '{{電費單價}}', en: '{{rate}}', value: (b) => num(b.electricityRate) },
+  { key: 'bill', zh: '{{電費}}', en: '{{bill}}', value: (b) => num(b.electricityCost) },
+  { key: 'rent', zh: '{{房租}}', en: '{{rent}}', value: (b) => num(b.rent) },
+  { key: 'total', zh: '{{合計}}', en: '{{total}}', value: (b) => num(b.totalAmount) },
 ];
 
 function escapeRegExp(s: string): string {
@@ -58,7 +57,7 @@ export function renderBillMessage(template: string, bill: BillMessageData): stri
     map[t.zh] = v;
     map[t.en] = v;
   }
-  // Longest-first so e.g. "#電費單價" matches before "#電費".
+  // Longest-first so e.g. "{{電費單價}}" matches before "{{電費}}".
   const hashes = Object.keys(map).sort((a, b) => b.length - a.length);
   const re = new RegExp(hashes.map(escapeRegExp).join('|'), 'g');
   return template.replace(re, (m) => map[m] ?? m);
@@ -68,20 +67,20 @@ export function renderBillMessage(template: string, bill: BillMessageData): stri
 export function getDefaultTemplate(language?: string): string {
   if (language && language.startsWith('zh')) {
     return [
-      '嗨 #房東',
+      '嗨 {{房東}}',
       '這個月的房租連電費 我一起轉過去嘍',
-      '這次電表#這次電表 -上次電表#上次電表',
-      '=#用電度數 #用電度數×#電費單價=#電費',
-      '#電費 +房租#房租=#合計',
+      '這次電表{{這次電表}} -上次電表{{上次電表}}',
+      '={{用電度數}} {{用電度數}}×{{電費單價}}={{電費}}',
+      '{{電費}} +房租{{房租}}={{合計}}',
       '再麻煩確認一下嘍',
     ].join('\n');
   }
   return [
-    'Hi #landlord',
+    'Hi {{landlord}}',
     "Here's this month's rent + electricity together.",
-    'This reading #current − last reading #previous',
-    '= #usage, #usage × #rate = #bill',
-    '#bill + rent #rent = #total',
+    'This reading {{current}} − last reading {{previous}}',
+    '= {{usage}}, {{usage}} × {{rate}} = {{bill}}',
+    '{{bill}} + rent {{rent}} = {{total}}',
     'Please help confirm, thanks!',
   ].join('\n');
 }
@@ -93,4 +92,11 @@ export function getDefaultTemplate(language?: string): string {
 export function getInsertTokens(language?: string): { key: string; token: string }[] {
   const zh = !!(language && language.startsWith('zh'));
   return TOKENS.map((t) => ({ key: t.key, token: zh ? t.zh : t.en }));
+}
+
+/** Every token string (both languages), for highlighting the template editor. */
+export function getAllTokenStrings(): string[] {
+  const out: string[] = [];
+  for (const t of TOKENS) out.push(t.zh, t.en);
+  return out;
 }

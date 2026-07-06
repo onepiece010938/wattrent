@@ -18,7 +18,7 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage, getCurrentLanguage } from '@/lib/i18n';
-import { getDefaultTemplate, getInsertTokens } from '@/lib/billMessage';
+import { getAllTokenStrings, getDefaultTemplate, getInsertTokens } from '@/lib/billMessage';
 import {
   getDevMode,
   setDevMode,
@@ -79,6 +79,9 @@ const SYSTEM_DEFAULT_SETTINGS: UserSettings = {
   landlordName: '',
   paymentMethod: 'bank_transfer',
 };
+
+// Token strings highlighted in the share-template preview.
+const TEMPLATE_TOKEN_SET = new Set(getAllTokenStrings());
 
 const DEFAULT_NOTIFICATIONS = true;
 const DEFAULT_AUTO_BACKUP = false;
@@ -744,6 +747,26 @@ export default function SettingsScreen() {
                 <Text className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   {t('settings.messageTemplateHint')}
                 </Text>
+                {(settings.messageTemplate ?? '').length > 0 ? (
+                  <View className="mt-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3">
+                    <Text className="text-[11px] text-gray-400 dark:text-gray-500 mb-1">
+                      {t('settings.messageTemplatePreview')}
+                    </Text>
+                    <Text className="text-sm text-gray-800 dark:text-gray-100" style={{ lineHeight: 22 }}>
+                      {(settings.messageTemplate ?? '')
+                        .split(/(\{\{[^}]+\}\})/g)
+                        .map((seg, i) =>
+                          TEMPLATE_TOKEN_SET.has(seg) ? (
+                            <Text key={i} className="text-primary font-semibold">
+                              {seg}
+                            </Text>
+                          ) : (
+                            <Text key={i}>{seg}</Text>
+                          ),
+                        )}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </View>
           </View>

@@ -114,6 +114,7 @@
     "selectPaymentMethod": "Select Payment Method",
     "messageTemplate": "Share message template",
     "messageTemplateHint": "Tap a tag below to insert it — tags become this bill's numbers when you share.",
+    "messageTemplatePreview": "Preview (variables highlighted)",
     "notifications": "Notification Settings",
     "paymentReminder": "Payment Reminder",
     "autoBackup": "Auto Backup",

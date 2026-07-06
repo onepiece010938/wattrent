@@ -114,6 +114,7 @@
     "selectPaymentMethod": "請選擇付款方式",
     "messageTemplate": "分享訊息範本",
     "messageTemplateHint": "點下方標籤即可插入，分享時會自動換成該筆帳單的數字。",
+    "messageTemplatePreview": "預覽（變數以顏色標示）",
     "notifications": "通知設定",
     "paymentReminder": "繳費提醒",
     "autoBackup": "自動備份",

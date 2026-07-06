@@ -58,7 +58,10 @@ export default function BillDetailScreen() {
     if (!bill) return;
     try {
       const updated = await apiService.setPaymentStatus(bill.id, !bill.paidAt);
-      setBill(updated);
+      // The payment-update response doesn't sign a fresh imageViewUrl (only the
+      // detail GET does), so keep the current one to stop the photo flashing
+      // away after marking paid.
+      setBill({ ...updated, imageViewUrl: updated.imageViewUrl ?? bill.imageViewUrl });
       if (!bill.paidAt) {
         // marked-as-paid: sync settings' previousMeterReading
         try {
