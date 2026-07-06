@@ -18,7 +18,7 @@ import settingsService from '@/services/settings';
 import { useColorScheme } from '~/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage, getCurrentLanguage } from '@/lib/i18n';
-import { getAllTokenStrings, getDefaultTemplate, getInsertTokens } from '@/lib/billMessage';
+import { getAllTokenStrings, getDefaultTemplate, getInsertTokens, migrateTemplate } from '@/lib/billMessage';
 import {
   getDevMode,
   setDevMode,
@@ -337,7 +337,7 @@ export default function SettingsScreen() {
       const restored = {
         ...latestSavedSettings,
         messageTemplate: latestSavedSettings.messageTemplate?.trim()
-          ? latestSavedSettings.messageTemplate
+          ? migrateTemplate(latestSavedSettings.messageTemplate)
           : getDefaultTemplate(currentLanguage),
       };
       // Restore to whatever the backend returned
@@ -419,7 +419,7 @@ export default function SettingsScreen() {
       const withTemplate = {
         ...loadedSettings,
         messageTemplate: loadedSettings.messageTemplate?.trim()
-          ? loadedSettings.messageTemplate
+          ? migrateTemplate(loadedSettings.messageTemplate)
           : getDefaultTemplate(currentLanguage),
       };
       setSettings(withTemplate);

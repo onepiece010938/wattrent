@@ -51,6 +51,7 @@ function escapeRegExp(s: string): string {
  * the bill's value. Unknown tokens are left untouched.
  */
 export function renderBillMessage(template: string, bill: BillMessageData): string {
+  const src = migrateTemplate(template);
   const map: Record<string, string> = {};
   for (const t of TOKENS) {
     const v = t.value(bill);
@@ -60,7 +61,7 @@ export function renderBillMessage(template: string, bill: BillMessageData): stri
   // Longest-first so e.g. "{{電費單價}}" matches before "{{電費}}".
   const hashes = Object.keys(map).sort((a, b) => b.length - a.length);
   const re = new RegExp(hashes.map(escapeRegExp).join('|'), 'g');
-  return template.replace(re, (m) => map[m] ?? m);
+  return src.replace(re, (m) => map[m] ?? m);
 }
 
 /** The pre-filled, editable default template for the given UI language. */
@@ -98,5 +99,20 @@ export function getInsertTokens(language?: string): { key: string; token: string
 export function getAllTokenStrings(): string[] {
   const out: string[] = [];
   for (const t of TOKENS) out.push(t.zh, t.en);
+  return out;
+}
+
+/**
+ * Upgrade legacy "#房租" placeholders (the pre-{{}} format) to the current
+ * {{房租}} form. No-op for templates that already use {{}} or have no tokens.
+ */
+export function migrateTemplate(template: string): string {
+  if (!template.includes('#')) return template;
+  const pairs = TOKENS.flatMap((t) => [
+    { old: '#' + t.zh.slice(2, -2), neu: t.zh },
+    { old: '#' + t.en.slice(2, -2), neu: t.en },
+  ]).sort((a, b) => b.old.length - a.old.length); // longest first (#電費單價 before #電費)
+  let out = template;
+  for (const p of pairs) out = out.split(p.old).join(p.neu);
   return out;
 }
