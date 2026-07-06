@@ -191,7 +191,10 @@ export default function CaptureScreen() {
     setOcrError(null);
     setLowConfidence(false);
     try {
-      const result = await apiService.processImage({ imageBase64 });
+      const result = await apiService.processImage({
+        imageBase64,
+        previousReading: parseFloat(previousReading) || 0,
+      });
       if (result?.reading != null) {
         setMeterReading(String(result.reading));
         if (typeof result.confidence === 'number' && result.confidence < 0.85) {

@@ -139,8 +139,9 @@ type UpdateSettingsRequest struct {
 
 // OCRRequest is the OCR request body.
 type OCRRequest struct {
-	ImageBase64 string `json:"imageBase64"`
-	ImageURL    string `json:"imageUrl"`
+	ImageBase64     string  `json:"imageBase64"`
+	ImageURL        string  `json:"imageUrl"`
+	PreviousReading float64 `json:"previousReading"`
 }
 
 // OCRResponse is the OCR response.

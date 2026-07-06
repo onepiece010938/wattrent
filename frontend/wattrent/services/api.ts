@@ -97,7 +97,7 @@ class ApiService {
   }
 
   // OCR
-  async processImage(input: { imageBase64?: string; imageUrl?: string }): Promise<OCRResult> {
+  async processImage(input: { imageBase64?: string; imageUrl?: string; previousReading?: number }): Promise<OCRResult> {
     const response = await this.request<OCRResult>('/ocr/process', {
       method: 'POST',
       body: JSON.stringify(input),
